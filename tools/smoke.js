@@ -146,33 +146,44 @@ async function run() {
     return labs.join(",") === "Trainer A,Trainer B,Trainer C,Trainer D" || labs.join(",");
   });
 
-  check("3인 이상에서만 높이를 고를 수 있다", () => {
+  check("3인 이상에서만 모양을 고를 수 있다", () => {
     setMode(1);
     const off = qsa("#flatSeg button").every(b => b.disabled);
     setMode(4);
     const on = qsa("#flatSeg button").every(b => !b.disabled);
     return (off && on) || "1인 잠김:" + off + " 4인 풀림:" + on;
   });
-  check("낮게 — 카드 높이가 1인과 같아진다", () => {
-    const getH = () => win.getComputedStyle(doc.documentElement).getPropertyValue("--ch").trim();
-    setMode(1); const one = getH();
-    setMode(4); const tall = getH();
+  check("가로로 — 세로는 1인과 같고 가로가 늘어난다", () => {
+    const g = k => win.getComputedStyle(doc.documentElement).getPropertyValue(k).trim();
+    setMode(1); const oneH = g("--ch");
+    setMode(4); const tallH = g("--ch"), tallW = g("--cw");
     click(qsa("#flatSeg button").find(b => b.dataset.v === "1"));
-    const flat = getH();
-    return (tall === "1072px" && flat === one) || "1인 " + one + " · 높게 " + tall + " · 낮게 " + flat;
+    const flatH = g("--ch"), flatW = g("--cw");
+    return (tallH === "1072px" && flatH === oneH && flatW === "2020px" && tallW === "1320px")
+      || "1인높이 " + oneH + " · 쌓기 " + tallW + "×" + tallH + " · 가로로 " + flatW + "×" + flatH;
   });
-  check("낮게에서는 카드에 flat 표시가 붙는다", () => {
+  check("가로로에서는 카드에 flat 표시가 붙는다", () => {
     return $("card").classList.contains("flat") || $("card").className;
   });
-  check("낮게에서도 사람 4 · 막대 24 · 덩어리 4", () => {
+  check("가로로에서도 사람 4 · 막대 24 · 덩어리 4", () => {
     const p = qsa(".person").length, b = qsa(".person .bar").length, g = qsa("#stage .party").length;
     return (p === 4 && b === 24 && g === 4) || "사람 " + p + " · 막대 " + b + " · 덩어리 " + g;
   });
-  check("높게로 되돌아간다", () => {
+  check("가로로에서는 사람이 옆으로 늘어선다", () => {
+    const dir = win.getComputedStyle(qs("#colL")).flexDirection;
+    return dir === "row" || "flex-direction: " + dir;
+  });
+  check("3인 가로로 — 카드 1664 폭", () => {
+    setMode(3);
+    const w = win.getComputedStyle(doc.documentElement).getPropertyValue("--cw").trim();
+    setMode(4);
+    return w === "1664px" || w;
+  });
+  check("쌓기로 되돌아간다", () => {
     click(qsa("#flatSeg button").find(b => b.dataset.v === "0"));
     return !$("card").classList.contains("flat");
   });
-  check("1인으로 가면 높이 선택이 다시 잠긴다", () => {
+  check("1인으로 가면 모양 선택이 다시 잠긴다", () => {
     setMode(1);
     const off = qsa("#flatSeg button").every(b => b.disabled);
     setMode(4);

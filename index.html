@@ -133,32 +133,13 @@ body.exporting .bar:hover,body.exporting .ent:hover{border-color:var(--cln)}
 }
 .card.m2,.card.m3,.card.m4{grid-template-columns:340px 1fr 340px}
 
-/* 납작한 3·4인 — 1인 카드와 같은 높이에 네 사람을 담으려고 촘촘하게 줄인다 */
-.card.flat .col{gap:12px}
-.card.flat .person{gap:7px}
-.card.flat .blk{padding:7px 12px}
-.card.flat .blk .lab{margin-bottom:1px}
-.card.flat .f-name,.card.flat .p-name{font-size:18px}
-.card.flat .f-role,.card.flat .p-role{font-size:11px;margin-top:1px}
-.card.flat .f-quote,.card.flat .p-quote{font-size:12px}
-.card.flat .f-desc,.card.flat .p-desc{font-size:11px;line-height:1.5}
-.card.flat .blk.grow .fld{height:30px}
-.card.flat .blk.quote{padding-left:18px}
-.card.flat .blk.quote::before{font-size:22px;left:6px;top:3px}
-.card.flat .pbars{gap:9px}
-.card.flat .bar{min-height:30px;padding:4px 10px;gap:7px;border-radius:11px}
-.card.flat .bar .bsp{--cell:30px}
-.card.flat .bar .bph{width:30px;height:30px;font-size:11px}
-.card.flat .bar .bno{font-size:8.5px}
-.card.flat .bar .bmain{line-height:1.3}
-.card.flat .bar .p-nick{font-size:12px}
-.card.flat .bar .p-sp{font-size:10px}
-.card.flat .bar .p-g{font-size:11px}
-.card.flat .bar .p-sz{font-size:9px}
-.card.flat .bar .p-rb{font-size:9px}
-.card.flat .bar .bempty{font-size:11px}
-.card.flat .solo{width:86px}
-.card.flat .solohint{font-size:9.5px}
+/* 가로로 펼친 3·4인 — 세로를 1인 카드에 맞추고 사람을 옆으로 늘어놓는다.
+   A B ǀ 단체샷 ǀ C D — 사람 칸은 1·2인과 같은 높이라 글씨를 줄일 필요가 없다. */
+.card.flat .col{flex-direction:row}
+.card.m4.flat{grid-template-columns:696px 1fr 696px}
+.card.m3.flat{grid-template-columns:696px 1fr 340px}
+.card.m3.flat #colR{justify-content:stretch}
+.card.m3.flat #colR .person{flex:1 1 0}
 /* 3인 — 오른쪽은 한 명뿐이니 억지로 늘리지 않고 위에 붙인다 */
 .card.m3 #colR{justify-content:flex-start}
 .card.m3 #colR .person{flex:0 0 calc((100% - 16px) / 2)}
@@ -418,10 +399,11 @@ select.tin{cursor:pointer}
 
         <div class="menu" id="moreMenu" hidden>
           <div class="msec" id="heightSec">
-            <h4><span class="n">01</span>카드 높이</h4>
+            <h4><span class="n">01</span>카드 모양</h4>
             <div class="row"><div class="seg" id="flatSeg"></div></div>
-            <p class="mini" style="margin:8px 0 0">세 명 이상일 때 고를 수 있어요. <b>낮게</b> 를 고르면 1인 카드와 같은 높이에
-              네 사람을 담느라 글과 막대가 촘촘해집니다.</p>
+            <p class="mini" style="margin:8px 0 0">세 명 이상일 때 고를 수 있어요.
+              <b>가로로</b> 는 <code>A B ǀ 단체샷 ǀ C D</code> 한 줄로 늘어놓아 1·2인과 세로 길이가 같아집니다.
+              사람 칸이 그만큼 넉넉해서 글씨는 그대로예요.</p>
           </div>
 
           <div class="msec">
@@ -642,11 +624,13 @@ var MODES = {
   4:{cw:1320, ch:1072}
 };
 var SIDE_W = 340, PAD = 18, GAP = 16;
-var FLAT_H = 700;                      /* 납작한 3·4인 — 1인 카드와 같은 높이 */
+/* 가로로 펼친 3·4인 — 세로는 1인 카드와 같은 700, 대신 옆으로 넓어진다.
+   가로 = 여백 36 + 사람칸들 + 칸 사이 + 단체샷 560 */
+var FLAT = { 3:{cw:1664, ch:700}, 4:{cw:2020, ch:700} };
 function isFlat(){ return S.mode>=3 && !!S.flat; }
 function cardSize(){
-  var c = MODES[S.mode] || MODES[1];
-  return isFlat() ? { cw:c.cw, ch:FLAT_H } : c;
+  if(isFlat()) return FLAT[S.mode];
+  return MODES[S.mode] || MODES[1];
 }
 
 /** 화면에 그려진 칸의 실제 크기를 카드 좌표로 돌려준다.
@@ -1429,7 +1413,7 @@ $("roleSel").addEventListener("change",function(){
 /* ── 인원 · 표시 항목 · 색 ───────────────────────── */
 function buildFlatSeg(){
   var w=$("flatSeg"); w.textContent="";
-  [["높게",0],["낮게",1]].forEach(function(o){
+  [["쌓기",0],["가로로",1]].forEach(function(o){
     var b=document.createElement("button"); b.type="button";
     b.textContent=o[0]; b.dataset.v=o[1];
     b.disabled = S.mode<3;
@@ -1442,7 +1426,7 @@ function buildFlatSeg(){
       for(var i=0;i<4;i++) S.people[i].party=null;   /* 칸 크기가 바뀌므로 제자리로 */
       buildFlatSeg();
       fit(); renderPeople(); renderBase(); refreshSolos(); renderLayers(); save();
-      toast(want ? "낮은 카드로 바꿨어요" : "높은 카드로 바꿨어요");
+      toast(want ? "가로로 펼쳤어요" : "위아래로 쌓았어요");
     });
     w.appendChild(b);
   });
