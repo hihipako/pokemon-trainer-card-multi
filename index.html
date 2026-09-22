@@ -53,11 +53,17 @@ input,select,textarea{font:inherit;color:inherit}
 :focus-visible{outline:2.5px solid var(--accent);outline-offset:2px;border-radius:5px}
 .pix{font-family:var(--pix)}
 
-/* 카드에 얹힌 버튼 — 저장본에는 안 담긴다 */
-.top{position:absolute;top:9px;right:9px;z-index:40;display:flex;align-items:center;gap:6px}
-/* 인원 고르기 — 이 사이트의 핵심이라 메뉴에 묻지 않고 카드 왼쪽 위에 둔다 */
+/* 조작 줄 — 카드 위쪽 빈 곳에 둔다. 카드를 가리지 않고 저장본에도 안 담긴다. */
+.chrome{
+  width:calc(var(--cw) * var(--k) + 26px);
+  max-width:100%;
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  margin:0 auto 8px;flex:0 0 auto;
+}
+.top{display:flex;align-items:center;gap:6px}
+/* 인원 고르기 — 이 사이트의 핵심이라 메뉴에 묻지 않고 밖에 내놓는다 */
 .modebar{
-  position:absolute;top:9px;left:9px;z-index:40;display:flex;align-items:center;gap:9px;
+  display:flex;align-items:center;gap:9px;
   background:var(--panel);border:1px solid var(--line-2);border-radius:12px;
   box-shadow:var(--sh);padding:4px 6px 4px 12px;
 }
@@ -386,7 +392,7 @@ select.tin{cursor:pointer}
 </style>
 
 <div class="wrap">
-  <div class="cardwrap">
+  <div class="chrome">
     <div class="modebar">
       <span class="cap">인원</span>
       <div class="seg" id="modeSeg"></div>
@@ -486,7 +492,9 @@ select.tin{cursor:pointer}
         </div>
       </div>
     </div>
+  </div>
 
+  <div class="cardwrap">
     <div class="cardfit">
       <div class="card m1" id="card">
         <div class="col" id="colL"></div>
@@ -723,8 +731,10 @@ function fit(){
   var padX=parseFloat(st.paddingLeft)+parseFloat(st.paddingRight);
   var padY=parseFloat(st.paddingTop)+parseFloat(st.paddingBottom);
   var frame=26;
+  var ch=document.querySelector(".chrome");
+  var chromeH=(ch && ch.offsetHeight ? ch.offsetHeight : 34) + 8;   /* 조작 줄이 차지하는 높이 */
   var availW=Math.min(wrap.clientWidth,1420)-padX-frame;
-  var availH=(window.innerHeight||document.documentElement.clientHeight)-padY-frame;
+  var availH=(window.innerHeight||document.documentElement.clientHeight)-padY-frame-chromeH;
   var k=Math.min(availW/c.cw, availH/c.ch);
   document.documentElement.style.setProperty("--k", Math.max(.2,Math.min(1.45,k)).toFixed(4));
 }
