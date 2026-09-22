@@ -280,6 +280,12 @@ async function run() {
     });
   })();
 
+  check("단독샷은 원본이 아니라 잘라낸 것을 쓴다", () => {
+    const im = qs(".solo img");
+    if (!im) return "단독샷 이미지가 없음";
+    const src = im.getAttribute("src") || "";
+    return src.startsWith("data:image/png;base64,AA==") || "src: " + src.slice(0, 40);
+  });
   /* ── 9. 리셋 ────────────────────────────────── */
   check("리셋은 두 번 눌러야 지워짐", () => {
     click($("resetBtn"));

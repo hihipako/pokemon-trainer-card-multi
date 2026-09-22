@@ -600,17 +600,32 @@ var MODES = {
 };
 var SIDE_W = 340, PAD = 18, GAP = 16;
 function cardSize(){ return MODES[S.mode] || MODES[1]; }
-/** 단체샷 칸의 카드 안 크기(px) — 자르기 비율과 도트 기본 자리에 쓴다. */
+
+/** 화면에 그려진 칸의 실제 크기를 카드 좌표로 돌려준다.
+    계산으로 짐작하면 실제 칸과 비율이 어긋나 엉뚱하게 잘린다. */
+function boxSizeOf(el){
+  if(!el) return null;
+  var r=el.getBoundingClientRect();
+  if(!r.width || !r.height) return null;
+  var k=scaleNow();
+  return { w:r.width/k, h:r.height/k };
+}
+/** 단체샷 칸 크기 — 자르기 비율과 도트 기본 자리에 쓴다. */
 function stageSize(){
-  var c=cardSize();
+  var m=boxSizeOf($("stage"));
+  if(m) return m;
+  var c=cardSize();                                   /* 아직 안 그려졌을 때의 어림값 */
   if(S.mode===1) return { w:(c.cw-PAD*2-GAP)/2, h:c.ch-PAD*2 };
   return { w:c.cw-PAD*2-GAP*2-SIDE_W*2, h:c.ch-PAD*2 };
 }
 var SOLO_W = 104;
-function soloSize(){
+function soloSize(pi){
+  var el = (pi==null) ? null : $("card").querySelector('.person[data-p="'+pi+'"] .solo');
+  var m = boxSizeOf(el);
+  if(m) return m;
   var c=cardSize();
   var rows = S.mode>=3 ? 2 : 1;
-  var colH = (c.ch-PAD*2 - (rows-1)*GAP) / rows;      /* 사람 한 칸 높이 */
+  var colH = (c.ch-PAD*2 - (rows-1)*GAP) / rows;
   var textH = 0;
   if(S.show.name) textH += 76;
   if(S.show.quote) textH += 46;
@@ -618,6 +633,8 @@ function soloSize(){
   textH += 11 * ((S.show.name?1:0)+(S.show.quote?1:0)+(S.show.desc?1:0));
   return { w:SOLO_W, h:Math.max(120, Math.round(colH-textH)) };
 }
+/** 잘라낸 단독샷 — 원본(S.people[i].solo)과 따로 들고 있어 저장을 부풀리지 않는다 */
+var soloR = [null,null,null,null];
 
 /* ── 상태 ────────────────────────────────────────── */
 var KEY="tcm.v1", VER=1;
@@ -742,7 +759,11 @@ function makePerson(pi){
     so.className="solo"+(p.solo?" plain":"");
     so.setAttribute("role","button"); so.tabIndex=0;
     so.setAttribute("aria-label", LETTER[pi]+" 단독샷");
-    if(p.solo){ var im=document.createElement("img"); im.alt=""; im.src=p.solo; so.appendChild(im); }
+    if(p.solo){
+      var im=document.createElement("img"); im.alt="";
+      im.src = soloR[pi] || p.solo;      /* 잘라낸 것이 있으면 그것을 쓴다 */
+      so.appendChild(im);
+    }
     else { var sh=document.createElement("div"); sh.className="solohint"; sh.textContent="단독샷"; so.appendChild(sh); }
     var openSolo=function(){
       if(document.body.classList.contains("locked")) return;
@@ -1077,12 +1098,12 @@ $("cropApply").addEventListener("click",function(){
   var r=cropBox.w/cropFrame.w;
   var crop={x:cropState.x*r, y:cropState.y*r, z:cropState.z};
   if(cropTarget.kind==="solo"){
-    var p=S.people[cropTarget.p];
+    var pi=cropTarget.p, p=S.people[pi];
     p.solo=cropSrc; p.soloCrop=crop;
     closeCrop();
-    var ss=soloSize();
+    var ss=soloSize(pi);
     renderCropped(p.solo, p.soloCrop, ss.w, ss.h, function(out){
-      p._soloR=out; renderPeople();
+      soloR[pi]=out; renderPeople();
       if(!trySave()) toast("사진이 커서 이번 화면에만 보여요"); else toast("단독샷을 넣었어요");
     });
   } else {
@@ -1375,15 +1396,16 @@ function buildModeSeg(){
     w.appendChild(b);
   });
 }
+/** 칸 크기가 달라졌을 수 있으니 단독샷을 그 크기에 맞춰 다시 잘라 넣는다. */
 function refreshSolos(){
   if(S.mode<2 || !S.show.solo) return;
-  var ss=soloSize();
   for(var i=0;i<S.mode;i++){
     (function(i){
       var p=S.people[i];
       if(!p.solo) return;
+      var ss=soloSize(i);
       renderCropped(p.solo, p.soloCrop, ss.w, ss.h, function(out){
-        p._soloR=out;
+        soloR[i]=out;
         var im=$("card").querySelector('.person[data-p="'+i+'"] .solo img');
         if(im) im.src=out;
       });
@@ -1575,6 +1597,7 @@ function showPng(blob, nm){
 /* ── 적용 · 시작 ─────────────────────────────────── */
 function apply(n){
   S=n;
+  soloR=[null,null,null,null];          /* 앞 카드의 잘라둔 사진이 남지 않게 */
   $("t_name").checked=S.show.name; $("t_quote").checked=S.show.quote; $("t_desc").checked=S.show.desc;
   $("t_party").checked=S.show.party; $("t_solo").checked=S.show.solo; $("t_grid").checked=S.grid;
   Array.prototype.slice.call(document.querySelectorAll("#toggles .chk")).forEach(function(l){

@@ -45,7 +45,7 @@ HTML 파일 하나 + 스프라이트시트 두 장으로 돌아가고, 서버도
 ```bash
 npm install
 npm run build     # src/template.html + data/payload.json → index.html
-npm test          # 가상 브라우저로 화면을 눌러보는 점검 (41항목)
+npm test          # 가상 브라우저로 화면을 눌러보는 점검 (42항목)
 npm start         # http://localhost:8080
 ```
 
