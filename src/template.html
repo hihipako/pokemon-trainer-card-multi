@@ -121,6 +121,9 @@ body.exporting .bar:hover,body.exporting .ent:hover{border-color:var(--cln)}
   grid-template-columns:1fr 1fr;
 }
 .card.m2,.card.m3,.card.m4{grid-template-columns:340px 1fr 340px}
+/* 3인 — 오른쪽은 한 명뿐이니 억지로 늘리지 않고 위에 붙인다 */
+.card.m3 #colR{justify-content:flex-start}
+.card.m3 #colR .person{flex:0 0 calc((100% - 16px) / 2)}
 
 /* 사람 칸이 세로로 쌓이는 열 */
 .col{display:flex;flex-direction:column;gap:16px;min-width:0;min-height:0}
@@ -219,10 +222,13 @@ body.locked .bar.empty{display:none}
 .layer.sel .grip{display:block}
 body.locked .layer{cursor:default;pointer-events:none}
 
-/* 엔트리 도트 — 하나씩 따로 옮긴다 */
-.dot{position:absolute;z-index:30;touch-action:none;cursor:move}
-.dot.drag{opacity:.92}
-body.locked .dot{cursor:default}
+/* 엔트리 도트 — 사람마다 여섯 개가 한 덩어리로 움직인다 */
+.party{position:absolute;z-index:30;display:flex;gap:7px;touch-action:none;cursor:move}
+.party.drag{opacity:.92}
+body.locked .party{cursor:default}
+.pcol{display:flex;flex-direction:column;gap:7px}
+.pcol.off{padding-top:26px}
+.card.m2 .pcol.off,.card.m3 .pcol.off,.card.m4 .pcol.off{padding-top:22px}
 .ent{
   position:relative;width:88px;height:88px;padding:0;border:0;cursor:pointer;
   display:flex;align-items:center;justify-content:center;
@@ -232,10 +238,10 @@ body.locked .dot{cursor:default}
 .card.m2 .ent,.card.m3 .ent,.card.m4 .ent{width:74px;height:74px;border-radius:12px}
 .ent .sprite{--cell:72px;transition:transform .15s}
 .card.m2 .ent .sprite,.card.m3 .ent .sprite,.card.m4 .ent .sprite{--cell:60px}
-.dot:hover .ent .sprite{transform:translateY(-3px)}
+.ent:hover .sprite{transform:translateY(-3px)}
 .ent.sel{box-shadow:0 0 0 2.5px var(--sel), 0 5px 14px rgba(0,0,0,.2)}
 .ent.empty{background:rgba(255,255,255,.72);border:1.5px dashed rgba(25,22,34,.3);color:rgba(25,22,34,.5);font-size:19px;box-shadow:none}
-.dot:hover .ent.empty{border-color:var(--sel);color:rgba(25,22,34,.75)}
+.ent.empty:hover{border-color:var(--sel);color:rgba(25,22,34,.75)}
 body.locked .ent.empty{display:none}
 
 .sprite{
@@ -618,7 +624,7 @@ var KEY="tcm.v1", VER=1;
 function newPerson(){
   return { name:"", role:"", quote:"", desc:"",
            solo:null, soloCrop:{x:0,y:0,z:1},
-           ents:[null,null,null,null,null,null], dots:null };
+           ents:[null,null,null,null,null,null], party:null };
 }
 function fresh(){
   return {
@@ -810,35 +816,41 @@ function renderPeople(){
 }
 
 /* ── 엔트리 도트 ─────────────────────────────────── */
-function defaultDots(pi){
-  var st=stageSize(), D=(S.mode===1?88:74), G=7, out=[];
+/* 사람마다 여섯 개가 한 덩어리. 2인은 좌·우, 3~4인은 네 귀퉁이에서 시작한다. */
+function partySize(){
+  var D=(S.mode===1?88:74), G=7, off=(S.mode===1?26:22);
+  return { w:2*D+G, h:3*D+2*G+off };
+}
+function defaultParty(pi){
+  var st=stageSize(), c=partySize();
+  var padX=Math.max(10, st.w*0.04), padY=Math.max(10, st.h*0.04);
   var bx, by;
-  if(S.mode===1){ bx=0.04*st.w; by=0.50*st.h; }
-  else { bx=(pi<2 ? 0.05 : 0.60)*st.w; by=(pi%2===0 ? 0.04 : 0.52)*st.h; }
-  for(var j=0;j<6;j++){
-    var col=j%2, row=Math.floor(j/2);
-    out.push({ x:(bx+col*(D+G))/st.w*100, y:(by+row*(D+G)+col*22)/st.h*100 });
-  }
-  return out;
+  if(S.mode===1){ bx=padX; by=0.50*st.h; }
+  else if(S.mode===2){ bx=(pi===0 ? padX : st.w-c.w-padX); by=(st.h-c.h)/2; }
+  else { bx=(pi<2 ? padX : st.w-c.w-padX);
+         by=(pi%2===0 ? padY : st.h-c.h-padY); }
+  return { x:bx/st.w*100, y:by/st.h*100 };
 }
 function peopleShown(){ return S.mode; }
 function renderDots(){
   var st=$("stage");
-  Array.prototype.slice.call(st.querySelectorAll(".dot")).forEach(function(n){ n.remove(); });
+  Array.prototype.slice.call(st.querySelectorAll(".party")).forEach(function(n){ n.remove(); });
   if(!S.show.party) return;
   for(var pi=0; pi<peopleShown(); pi++){
-    var p=S.people[pi];
-    if(!p.dots || p.dots.length!==6) p.dots=defaultDots(pi);
-    (function(pi,p){
+    (function(pi){
+      var p=S.people[pi];
+      if(!p.party || typeof p.party.x!=="number") p.party=defaultParty(pi);
+      var g=document.createElement("div");
+      g.className="party"; g.dataset.p=pi;
+      g.style.left=p.party.x+"%"; g.style.top=p.party.y+"%"; g.style.zIndex=30+pi;
+      var cols=[document.createElement("div"),document.createElement("div")];
+      cols[0].className="pcol"; cols[1].className="pcol off";
       p.ents.forEach(function(e,i){
-        var d=document.createElement("div");
-        d.className="dot";
-        d.style.left=p.dots[i].x+"%"; d.style.top=p.dots[i].y+"%";
-        d.style.zIndex = 30+pi*6+i;
         var b=document.createElement("button");
         b.type="button";
         b.className="ent"+(e?"":" empty")+((hiP===pi&&hi===i)?" sel":"");
-        b.setAttribute("aria-label",LETTER[pi]+" "+(i+1)+"번 자리 "+(e?byId[e.id].k:"— 포켓몬 넣기"));
+        b.dataset.i=i;
+        b.setAttribute("aria-label",(S.mode>1?LETTER[pi]+" ":"")+(i+1)+"번 자리 "+(e?byId[e.id].k:"— 포켓몬 넣기"));
         if(!e) b.textContent="＋";
         else {
           var m=byId[e.id];
@@ -847,43 +859,41 @@ function renderDots(){
           sp.setAttribute("style",spStyle(m));
           b.appendChild(sp);
         }
-        var moved=false;
-        b.addEventListener("click",function(ev){
-          ev.stopPropagation();
-          if(moved){ moved=false; return; }
-          if(document.body.classList.contains("locked")) return;
-          openModal(pi,i);
-        });
-        d.addEventListener("pointerdown",function(ev){
-          if(document.body.classList.contains("locked")) return;
-          ev.stopPropagation();
-          moved=false;
-          var R=st.getBoundingClientRect();
-          var ox=ev.clientX-(R.left+p.dots[i].x/100*R.width);
-          var oy=ev.clientY-(R.top+p.dots[i].y/100*R.height);
-          try{ d.setPointerCapture(ev.pointerId); }catch(e2){}
-          d.classList.add("drag");
-          function mv(e2){
-            moved=true;
-            p.dots[i].x=Math.max(-8,Math.min(98,(e2.clientX-ox-R.left)/R.width*100));
-            p.dots[i].y=Math.max(-8,Math.min(98,(e2.clientY-oy-R.top)/R.height*100));
-            d.style.left=p.dots[i].x+"%"; d.style.top=p.dots[i].y+"%";
-          }
-          function up(){
-            d.removeEventListener("pointermove",mv); d.removeEventListener("pointerup",up);
-            d.classList.remove("drag");
-            if(moved) save();
-          }
-          d.addEventListener("pointermove",mv); d.addEventListener("pointerup",up);
-        });
-        d.appendChild(b);
-        st.appendChild(d);
+        cols[i%2].appendChild(b);
       });
-    })(pi,p);
+      g.appendChild(cols[0]); g.appendChild(cols[1]);
+
+      /* 도트 위에서 끌면 여섯 개가 같이 움직이고, 움직이지 않고 떼면 그 칸이 열린다 */
+      g.addEventListener("pointerdown",function(ev){
+        if(document.body.classList.contains("locked")) return;
+        ev.stopPropagation();
+        var hitEnt=ev.target.closest(".ent");
+        var R=st.getBoundingClientRect();
+        var ox=ev.clientX-(R.left+p.party.x/100*R.width);
+        var oy=ev.clientY-(R.top+p.party.y/100*R.height);
+        var sx=ev.clientX, sy=ev.clientY, moved=false;
+        try{ g.setPointerCapture(ev.pointerId); }catch(e2){}
+        function mv(e2){
+          if(!moved && Math.abs(e2.clientX-sx)+Math.abs(e2.clientY-sy) < 5) return;
+          if(!moved){ moved=true; g.classList.add("drag"); }
+          p.party.x=Math.max(-10,Math.min(96,(e2.clientX-ox-R.left)/R.width*100));
+          p.party.y=Math.max(-10,Math.min(96,(e2.clientY-oy-R.top)/R.height*100));
+          g.style.left=p.party.x+"%"; g.style.top=p.party.y+"%";
+        }
+        function up(){
+          g.removeEventListener("pointermove",mv); g.removeEventListener("pointerup",up);
+          g.classList.remove("drag");
+          if(moved) save();
+          else if(hitEnt) openModal(pi, +hitEnt.dataset.i);
+        }
+        g.addEventListener("pointermove",mv); g.addEventListener("pointerup",up);
+      });
+      st.appendChild(g);
+    })(pi);
   }
 }
 $("dotsReset").addEventListener("click",function(){
-  for(var i=0;i<4;i++) S.people[i].dots=null;
+  for(var i=0;i<4;i++) S.people[i].party=null;
   renderDots(); save(); toast("도트를 제자리로 되돌렸어요");
 });
 
@@ -1357,7 +1367,7 @@ function buildModeSeg(){
     b.addEventListener("click",function(){
       if(S.mode===n) return;
       S.mode=n;
-      for(var i=0;i<4;i++) S.people[i].dots=null;   /* 칸 크기가 바뀌므로 제자리로 */
+      for(var i=0;i<4;i++) S.people[i].party=null;   /* 칸 크기가 바뀌므로 제자리로 */
       buildModeSeg(); buildRoleWho();
       fit(); renderPeople(); renderBase(); refreshSolos(); renderLayers(); save();
       toast(n+"인용으로 바꿨어요");
@@ -1441,7 +1451,7 @@ function encode(){
     pp:S.people.slice(0,4).map(function(p){
       return { n:p.name, r:p.role, q:p.quote, d:p.desc,
         e:p.ents.map(function(e){ return e?[e.id,e.nick,e.size,e.title,e.ribbon,e.g,e.sh?1:0]:0; }),
-        dt:(p.dots||[]).map(function(d){ return [Math.round(d.x*10)/10, Math.round(d.y*10)/10]; }) };
+        pt:p.party ? [Math.round(p.party.x*10)/10, Math.round(p.party.y*10)/10] : 0 };
     })
   }));
 }
@@ -1466,8 +1476,7 @@ function decode(code){
         title:String(v[3]||""),ribbon:String(v[4]||""),
         g:gs.indexOf(v[5])>=0?v[5]:(gs.length?gs[0]:"n"),sh:!!v[6]});
     }
-    p.dots = (Array.isArray(src.dt)&&src.dt.length===6)
-      ? src.dt.map(function(d){ return {x:+d[0]||0,y:+d[1]||0}; }) : null;
+    p.party = (Array.isArray(src.pt)&&src.pt.length===2) ? {x:+src.pt[0]||0, y:+src.pt[1]||0} : null;
     p.solo=S.people[i].solo; p.soloCrop=S.people[i].soloCrop;
   }
   n.base=S.base; n.baseCrop=S.baseCrop; n.layers=S.layers;
@@ -1599,7 +1608,7 @@ function start(hot){
         p=p||newPerson();
         p.ents=(p.ents||[]).map(function(e){ if(!e||!byId[e.id]) return null; e.size=normSize(e.size); return e; }).slice(0,6);
         while(p.ents.length<6) p.ents.push(null);
-        if(!Array.isArray(p.dots)||p.dots.length!==6) p.dots=null;
+        if(!p.party||typeof p.party.x!=="number") p.party=null;
         p.soloCrop=p.soloCrop||{x:0,y:0,z:1};
         return p;
       });

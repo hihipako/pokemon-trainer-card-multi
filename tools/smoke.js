@@ -50,7 +50,7 @@ const dom = new JSDOM(html, {
       if (id === "card")  return rect(0, 0, 1120, 700);
       if (id === "stage") return rect(560, 18, 534, 664);
       if (cls.includes("cropbox")) return rect(0, 0, 300, 373);
-      if (cls.includes("dot") || cls.includes("layer")) return rect(100, 100, 88, 88);
+      if (cls.includes("party") || cls.includes("layer")) return rect(100, 100, 183, 304);
       return rect(0, 0, 300, 300);
     };
     function rect(x, y, w, h) {
@@ -103,27 +103,37 @@ async function run() {
   check("처음엔 1인용", () => $("card").classList.contains("m1"));
   check("사람 칸 1개", () => qsa(".person").length === 1 || "개수 " + qsa(".person").length);
   check("막대 6개", () => qsa(".person .bar").length === 6 || "개수 " + qsa(".person .bar").length);
-  check("도트 6개", () => qsa("#stage .dot").length === 6 || "개수 " + qsa("#stage .dot").length);
+  check("도트 덩어리 1개 · 칸 6개", () => {
+    const g=qsa("#stage .party").length, e=qsa("#stage .ent").length;
+    return (g===1 && e===6) || "덩어리 "+g+" · 칸 "+e;
+  });
   check("1인용엔 단독샷이 없다", () => qsa(".solo").length === 0 || "개수 " + qsa(".solo").length);
   check("처음엔 전부 빈 자리", () => qsa(".bar.empty").length === 6);
   check("텍스트 칸이 비어 있음", () => qsa(".person .fld").every(e => e.value === ""));
   check("공유 코드가 만들어짐", () => /^M1\./.test($("outCode").value) || $("outCode").value.slice(0, 20));
 
   /* ── 2. 인원 바꾸기 ─────────────────────────── */
-  check("2인용 — 사람 2 · 도트 12 · 단독샷 2", () => {
+  check("2인용 — 사람 2 · 도트 덩어리 2 · 단독샷 2", () => {
     setMode(2);
-    const p = qsa(".person").length, d = qsa("#stage .dot").length, s = qsa(".solo").length;
-    return (p === 2 && d === 12 && s === 2) || `사람 ${p} · 도트 ${d} · 단독샷 ${s}`;
+    const p = qsa(".person").length, d = qsa("#stage .party").length, s = qsa(".solo").length;
+    return (p === 2 && d === 2 && s === 2) || `사람 ${p} · 덩어리 ${d} · 단독샷 ${s}`;
   });
   check("3인용 — 왼쪽 2 · 오른쪽 1", () => {
     setMode(3);
     const l = qsa("#colL .person").length, r = qsa("#colR .person").length;
     return (l === 2 && r === 1) || `왼쪽 ${l} · 오른쪽 ${r}`;
   });
-  check("4인용 — 왼쪽 2 · 오른쪽 2 · 도트 24", () => {
+  check("3인용 오른쪽은 절반 높이로 둔다", () => {
+    setMode(3);
+    const p = qs("#colR .person");
+    const st = p.getAttribute("style") || "";
+    const flex = win.getComputedStyle(p).flex || "";
+    return /0 0/.test(flex) || flex || "flex 값을 못 읽음";
+  });
+  check("4인용 — 왼쪽 2 · 오른쪽 2 · 덩어리 4", () => {
     setMode(4);
-    const l = qsa("#colL .person").length, r = qsa("#colR .person").length, d = qsa("#stage .dot").length;
-    return (l === 2 && r === 2 && d === 24) || `왼쪽 ${l} · 오른쪽 ${r} · 도트 ${d}`;
+    const l = qsa("#colL .person").length, r = qsa("#colR .person").length, d = qsa("#stage .party").length;
+    return (l === 2 && r === 2 && d === 4) || `왼쪽 ${l} · 오른쪽 ${r} · 덩어리 ${d}`;
   });
   check("인원에 따라 카드 크기가 바뀐다", () => {
     const get = () => win.getComputedStyle(doc.documentElement).getPropertyValue("--cw").trim();
@@ -165,27 +175,34 @@ async function run() {
     return /XXXL/.test(qsa(".person")[2].querySelectorAll(".bar")[2].textContent);
   });
   check("도트에도 반영", () => {
-    const dots = qsa("#stage .dot");
-    const filled = dots.filter(d => !d.querySelector(".ent").classList.contains("empty"));
+    const filled = qsa("#stage .ent").filter(e => !e.classList.contains("empty"));
     return filled.length === 1 || "채워진 도트 " + filled.length;
   });
   check("편집창 닫기", () => { click($("mClose")); return $("modal").hidden === true; });
 
-  /* ── 4. 도트 개별 이동 ──────────────────────── */
-  check("도트를 하나만 끌면 그것만 움직인다", () => {
-    const dots = qsa("#stage .dot");
-    const before = dots.map(d => d.style.left);
-    pointer(dots[0], "pointerdown", 600, 400);
-    pointer(dots[0], "pointermove", 900, 550);
-    pointer(dots[0], "pointerup", 900, 550);
-    const after = qsa("#stage .dot").map(d => d.style.left);
+  /* ── 4. 도트 덩어리 이동 ────────────────────── */
+  check("덩어리를 끌면 여섯 개가 같이 움직인다", () => {
+    const gs = qsa("#stage .party");
+    const before = gs.map(g => g.style.left);
+    pointer(gs[0], "pointerdown", 600, 400);
+    pointer(gs[0], "pointermove", 900, 550);
+    pointer(gs[0], "pointerup", 900, 550);
+    const after = qsa("#stage .party").map(g => g.style.left);
     const movedCount = after.filter((v, i) => v !== before[i]).length;
-    return movedCount === 1 || `움직인 도트 ${movedCount}개`;
+    const kids = qsa("#stage .party")[0].querySelectorAll(".ent").length;
+    return (movedCount === 1 && kids === 6) || "움직인 덩어리 " + movedCount + " · 칸 " + kids;
+  });
+  check("2인용은 좌·우로 갈라져 시작한다", () => {
+    setMode(2); click($("dotsReset"));
+    const xs = qsa("#stage .party").map(g => parseFloat(g.style.left));
+    setMode(4);
+    return (xs.length === 2 && xs[0] < 20 && xs[1] > 45) || "x: " + xs.join(", ");
   });
   check("도트 제자리로", () => {
-    const moved = qsa("#stage .dot")[0].style.left;
+    const g = qsa("#stage .party")[0];
+    g.style.left = "77%";
     click($("dotsReset"));
-    return qsa("#stage .dot")[0].style.left !== moved;
+    return qsa("#stage .party")[0].style.left !== "77%";
   });
 
   /* ── 5. 표시 항목 · 배경 ────────────────────── */
