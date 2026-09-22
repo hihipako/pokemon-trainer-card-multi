@@ -1,0 +1,14 @@
+{
+  "name": "pokemon-trainer-card-multi",
+  "version": "1.0.0",
+  "description": "포켓몬 트레이너 카드를 1~4인용으로 만드는 단일 HTML 도구",
+  "private": true,
+  "license": "MIT",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "build": "node tools/build.js",
+    "start": "node tools/serve.js",
+    "test": "node tools/smoke.js"
+  },
+  "devDependencies": { "jsdom": "^29.0.0" }
+}
