@@ -53,8 +53,19 @@ input,select,textarea{font:inherit;color:inherit}
 :focus-visible{outline:2.5px solid var(--accent);outline-offset:2px;border-radius:5px}
 .pix{font-family:var(--pix)}
 
-/* 카드 오른쪽 위에 얹힌 버튼 — 저장본에는 안 담긴다 */
+/* 카드에 얹힌 버튼 — 저장본에는 안 담긴다 */
 .top{position:absolute;top:9px;right:9px;z-index:40;display:flex;align-items:center;gap:6px}
+/* 인원 고르기 — 이 사이트의 핵심이라 메뉴에 묻지 않고 카드 왼쪽 위에 둔다 */
+.modebar{
+  position:absolute;top:9px;left:9px;z-index:40;display:flex;align-items:center;gap:9px;
+  background:var(--panel);border:1px solid var(--line-2);border-radius:12px;
+  box-shadow:var(--sh);padding:4px 6px 4px 12px;
+}
+.modebar .cap{font-size:11px;font-weight:700;color:var(--soft);letter-spacing:.02em}
+.modebar .seg{background:none;padding:0;gap:3px}
+.modebar .seg button{padding:6px 13px;font-size:12px;border-radius:9px;background:var(--inset)}
+.modebar .seg button.on{background:var(--accent);color:#fff}
+body.exporting .modebar{display:none}
 .savebtn{
   height:34px;padding:0 15px;border-radius:11px;border:1px solid var(--line-2);
   background:var(--accent);color:#fff;font-size:12.5px;font-weight:700;
@@ -368,6 +379,10 @@ select.tin{cursor:pointer}
 
 <div class="wrap">
   <div class="cardwrap">
+    <div class="modebar">
+      <span class="cap">인원</span>
+      <div class="seg" id="modeSeg"></div>
+    </div>
     <div class="top">
       <button class="resetbtn" id="resetBtn" type="button">↺ 리셋</button>
       <button class="savebtn" id="saveBtn" type="button">💾 저장</button>
@@ -376,13 +391,7 @@ select.tin{cursor:pointer}
 
         <div class="menu" id="moreMenu" hidden>
           <div class="msec">
-            <h4><span class="n">01</span>인원</h4>
-            <div class="row"><div class="seg" id="modeSeg"></div></div>
-            <p class="mini" style="margin:8px 0 0">2인 이상이면 가운데가 단체샷이 되고, 사람마다 단독샷 칸이 생깁니다.</p>
-          </div>
-
-          <div class="msec">
-            <h4><span class="n">02</span>넣을 항목</h4>
+            <h4><span class="n">01</span>넣을 항목</h4>
             <div class="row" id="toggles">
               <label class="chk"><input type="checkbox" id="t_name" checked> 이름·신분</label>
               <label class="chk"><input type="checkbox" id="t_quote" checked> 한 줄 대사</label>
@@ -394,14 +403,14 @@ select.tin{cursor:pointer}
           </div>
 
           <div class="msec">
-            <h4><span class="n">03</span>트레이너 칭호</h4>
+            <h4><span class="n">02</span>트레이너 칭호</h4>
             <div class="row"><div class="seg" id="roleWho"></div></div>
             <div class="row"><select class="tin" id="roleSel" style="flex:1 1 100%" aria-label="트레이너 칭호 고르기"></select></div>
             <p class="mini" style="margin:8px 0 0">고른 사람의 <b>신분</b> 칸에 들어갑니다. 직접 써도 돼요.</p>
           </div>
 
           <div class="msec">
-            <h4><span class="n">04</span>배경색</h4>
+            <h4><span class="n">03</span>배경색</h4>
             <div class="row">
               <button class="sw" id="sw_w" style="background:#fff" type="button" title="하양"></button>
               <button class="sw" id="sw_k" style="background:#111" type="button" title="검정"></button>
@@ -411,7 +420,7 @@ select.tin{cursor:pointer}
           </div>
 
           <div class="msec">
-            <h4><span class="n">05</span><span id="photoLabel">트레이너 이미지</span></h4>
+            <h4><span class="n">04</span><span id="photoLabel">트레이너 이미지</span></h4>
             <div class="row">
               <button class="btn" id="baseBtn" type="button">사진 불러오기</button>
               <button class="btn g sm" id="baseCrop" type="button">✂ 다시 자르기</button>
@@ -421,7 +430,7 @@ select.tin{cursor:pointer}
           </div>
 
           <div class="msec">
-            <h4><span class="n">06</span>파일 추가 — 스티커 · 로고</h4>
+            <h4><span class="n">05</span>파일 추가 — 스티커 · 로고</h4>
             <div class="row">
               <button class="btn" id="layAdd" type="button">이미지 추가</button>
               <button class="btn g sm" id="layFront" type="button">맨 앞으로</button>
@@ -432,7 +441,7 @@ select.tin{cursor:pointer}
           </div>
 
           <div class="msec">
-            <h4><span class="n">07</span>화면</h4>
+            <h4><span class="n">06</span>화면</h4>
             <div class="row">
               <button class="tbtn" id="lockBtn" type="button">🔓 배치 잠그기</button>
               <button class="tbtn" id="themeBtn" type="button">🌙 다크</button>
@@ -441,7 +450,7 @@ select.tin{cursor:pointer}
           </div>
 
           <div class="msec">
-            <h4><span class="n">08</span>저장 &amp; 공유</h4>
+            <h4><span class="n">07</span>저장 &amp; 공유</h4>
             <div class="row">
               <input class="tin" id="outCode" readonly style="flex:1 1 200px;font-family:var(--pix);font-size:10.5px" aria-label="내 카드 코드">
               <button class="btn sm" id="copyBtn" type="button">복사</button>
