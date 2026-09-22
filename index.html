@@ -132,6 +132,33 @@ body.exporting .bar:hover,body.exporting .ent:hover{border-color:var(--cln)}
   grid-template-columns:1fr 1fr;
 }
 .card.m2,.card.m3,.card.m4{grid-template-columns:340px 1fr 340px}
+
+/* 납작한 3·4인 — 1인 카드와 같은 높이에 네 사람을 담으려고 촘촘하게 줄인다 */
+.card.flat .col{gap:12px}
+.card.flat .person{gap:7px}
+.card.flat .blk{padding:7px 12px}
+.card.flat .blk .lab{margin-bottom:1px}
+.card.flat .f-name,.card.flat .p-name{font-size:18px}
+.card.flat .f-role,.card.flat .p-role{font-size:11px;margin-top:1px}
+.card.flat .f-quote,.card.flat .p-quote{font-size:12px}
+.card.flat .f-desc,.card.flat .p-desc{font-size:11px;line-height:1.5}
+.card.flat .blk.grow .fld{height:30px}
+.card.flat .blk.quote{padding-left:18px}
+.card.flat .blk.quote::before{font-size:22px;left:6px;top:3px}
+.card.flat .pbars{gap:9px}
+.card.flat .bar{min-height:30px;padding:4px 10px;gap:7px;border-radius:11px}
+.card.flat .bar .bsp{--cell:30px}
+.card.flat .bar .bph{width:30px;height:30px;font-size:11px}
+.card.flat .bar .bno{font-size:8.5px}
+.card.flat .bar .bmain{line-height:1.3}
+.card.flat .bar .p-nick{font-size:12px}
+.card.flat .bar .p-sp{font-size:10px}
+.card.flat .bar .p-g{font-size:11px}
+.card.flat .bar .p-sz{font-size:9px}
+.card.flat .bar .p-rb{font-size:9px}
+.card.flat .bar .bempty{font-size:11px}
+.card.flat .solo{width:86px}
+.card.flat .solohint{font-size:9.5px}
 /* 3인 — 오른쪽은 한 명뿐이니 억지로 늘리지 않고 위에 붙인다 */
 .card.m3 #colR{justify-content:flex-start}
 .card.m3 #colR .person{flex:0 0 calc((100% - 16px) / 2)}
@@ -390,8 +417,15 @@ select.tin{cursor:pointer}
         <button class="dotsbtn" id="moreBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="기타 항목 열기" title="기타 항목">⋯</button>
 
         <div class="menu" id="moreMenu" hidden>
+          <div class="msec" id="heightSec">
+            <h4><span class="n">01</span>카드 높이</h4>
+            <div class="row"><div class="seg" id="flatSeg"></div></div>
+            <p class="mini" style="margin:8px 0 0">세 명 이상일 때 고를 수 있어요. <b>낮게</b> 를 고르면 1인 카드와 같은 높이에
+              네 사람을 담느라 글과 막대가 촘촘해집니다.</p>
+          </div>
+
           <div class="msec">
-            <h4><span class="n">01</span>넣을 항목</h4>
+            <h4><span class="n">02</span>넣을 항목</h4>
             <div class="row" id="toggles">
               <label class="chk"><input type="checkbox" id="t_name" checked> 이름·신분</label>
               <label class="chk"><input type="checkbox" id="t_quote" checked> 한 줄 대사</label>
@@ -403,14 +437,14 @@ select.tin{cursor:pointer}
           </div>
 
           <div class="msec">
-            <h4><span class="n">02</span>트레이너 칭호</h4>
+            <h4><span class="n">03</span>트레이너 칭호</h4>
             <div class="row"><div class="seg" id="roleWho"></div></div>
             <div class="row"><select class="tin" id="roleSel" style="flex:1 1 100%" aria-label="트레이너 칭호 고르기"></select></div>
             <p class="mini" style="margin:8px 0 0">고른 사람의 <b>신분</b> 칸에 들어갑니다. 직접 써도 돼요.</p>
           </div>
 
           <div class="msec">
-            <h4><span class="n">03</span>배경색</h4>
+            <h4><span class="n">04</span>배경색</h4>
             <div class="row">
               <button class="sw" id="sw_w" style="background:#fff" type="button" title="하양"></button>
               <button class="sw" id="sw_k" style="background:#111" type="button" title="검정"></button>
@@ -420,7 +454,7 @@ select.tin{cursor:pointer}
           </div>
 
           <div class="msec">
-            <h4><span class="n">04</span><span id="photoLabel">트레이너 이미지</span></h4>
+            <h4><span class="n">05</span><span id="photoLabel">트레이너 이미지</span></h4>
             <div class="row">
               <button class="btn" id="baseBtn" type="button">사진 불러오기</button>
               <button class="btn g sm" id="baseCrop" type="button">✂ 다시 자르기</button>
@@ -430,7 +464,7 @@ select.tin{cursor:pointer}
           </div>
 
           <div class="msec">
-            <h4><span class="n">05</span>파일 추가 — 스티커 · 로고</h4>
+            <h4><span class="n">06</span>파일 추가 — 스티커 · 로고</h4>
             <div class="row">
               <button class="btn" id="layAdd" type="button">이미지 추가</button>
               <button class="btn g sm" id="layFront" type="button">맨 앞으로</button>
@@ -441,7 +475,7 @@ select.tin{cursor:pointer}
           </div>
 
           <div class="msec">
-            <h4><span class="n">06</span>화면</h4>
+            <h4><span class="n">07</span>화면</h4>
             <div class="row">
               <button class="tbtn" id="lockBtn" type="button">🔓 배치 잠그기</button>
               <button class="tbtn" id="themeBtn" type="button">🌙 다크</button>
@@ -450,7 +484,7 @@ select.tin{cursor:pointer}
           </div>
 
           <div class="msec">
-            <h4><span class="n">07</span>저장 &amp; 공유</h4>
+            <h4><span class="n">08</span>저장 &amp; 공유</h4>
             <div class="row">
               <input class="tin" id="outCode" readonly style="flex:1 1 200px;font-family:var(--pix);font-size:10.5px" aria-label="내 카드 코드">
               <button class="btn sm" id="copyBtn" type="button">복사</button>
@@ -608,7 +642,12 @@ var MODES = {
   4:{cw:1320, ch:1072}
 };
 var SIDE_W = 340, PAD = 18, GAP = 16;
-function cardSize(){ return MODES[S.mode] || MODES[1]; }
+var FLAT_H = 700;                      /* 납작한 3·4인 — 1인 카드와 같은 높이 */
+function isFlat(){ return S.mode>=3 && !!S.flat; }
+function cardSize(){
+  var c = MODES[S.mode] || MODES[1];
+  return isFlat() ? { cw:c.cw, ch:FLAT_H } : c;
+}
 
 /** 화면에 그려진 칸의 실제 크기를 카드 좌표로 돌려준다.
     계산으로 짐작하면 실제 칸과 비율이 어긋나 엉뚱하게 잘린다. */
@@ -654,7 +693,7 @@ function newPerson(){
 }
 function fresh(){
   return {
-    v:VER, mode:1,
+    v:VER, mode:1, flat:false,
     bg:"#ffffff", grid:true,
     show:{name:true,quote:true,desc:true,party:true,solo:true},
     people:[newPerson(),newPerson(),newPerson(),newPerson()],
@@ -831,7 +870,7 @@ function fillBars(w, pi){
 }
 function renderPeople(){
   var c=$("card");
-  c.className="card m"+S.mode;
+  c.className="card m"+S.mode+(isFlat()?" flat":"");
   $("colL").textContent=""; $("colR").textContent="";
   var left=[], right=[];
   if(S.mode===1){ left=[0]; right=[]; }
@@ -1388,6 +1427,27 @@ $("roleSel").addEventListener("change",function(){
 });
 
 /* ── 인원 · 표시 항목 · 색 ───────────────────────── */
+function buildFlatSeg(){
+  var w=$("flatSeg"); w.textContent="";
+  [["높게",0],["낮게",1]].forEach(function(o){
+    var b=document.createElement("button"); b.type="button";
+    b.textContent=o[0]; b.dataset.v=o[1];
+    b.disabled = S.mode<3;
+    b.className = (!!S.flat===!!o[1] && S.mode>=3) ? "on" : "";
+    b.addEventListener("click",function(){
+      if(b.disabled) return;
+      var want=!!o[1];
+      if(!!S.flat===want) return;
+      S.flat=want;
+      for(var i=0;i<4;i++) S.people[i].party=null;   /* 칸 크기가 바뀌므로 제자리로 */
+      buildFlatSeg();
+      fit(); renderPeople(); renderBase(); refreshSolos(); renderLayers(); save();
+      toast(want ? "낮은 카드로 바꿨어요" : "높은 카드로 바꿨어요");
+    });
+    w.appendChild(b);
+  });
+  $("heightSec").style.opacity = S.mode<3 ? ".45" : "";
+}
 function buildModeSeg(){
   var w=$("modeSeg"); w.textContent="";
   [1,2,3,4].forEach(function(n){
@@ -1398,7 +1458,7 @@ function buildModeSeg(){
       if(S.mode===n) return;
       S.mode=n;
       for(var i=0;i<4;i++) S.people[i].party=null;   /* 칸 크기가 바뀌므로 제자리로 */
-      buildModeSeg(); buildRoleWho();
+      buildModeSeg(); buildRoleWho(); buildFlatSeg();
       fit(); renderPeople(); renderBase(); refreshSolos(); renderLayers(); save();
       toast(n+"인용으로 바꿨어요");
     });
@@ -1478,7 +1538,7 @@ function b64d(c){ var s=c.replace(/-/g,"+").replace(/_/g,"/").trim(); while(s.le
   return new TextDecoder().decode(b); }
 function encode(){
   return "M1."+b64e(JSON.stringify({
-    md:S.mode, bg:S.bg, gr:S.grid?1:0, sh:S.show,
+    md:S.mode, fl:S.flat?1:0, bg:S.bg, gr:S.grid?1:0, sh:S.show,
     pp:S.people.slice(0,4).map(function(p){
       return { n:p.name, r:p.role, q:p.quote, d:p.desc,
         e:p.ents.map(function(e){ return e?[e.id,e.nick,e.size,e.title,e.ribbon,e.g,e.sh?1:0]:0; }),
@@ -1491,6 +1551,7 @@ function decode(code){
   if(!o||!Array.isArray(o.pp)) return null;
   var n=fresh();
   n.mode = [1,2,3,4].indexOf(+o.md)>=0 ? +o.md : 1;
+  n.flat = !!o.fl;
   if(/^#[0-9a-f]{6}$/i.test(o.bg||"")) n.bg=o.bg;
   n.grid = o.gr!==0;
   if(o.sh) n.show={name:!!o.sh.name,quote:!!o.sh.quote,desc:!!o.sh.desc,party:!!o.sh.party,solo:o.sh.solo!==false};
@@ -1613,7 +1674,7 @@ function apply(n){
     l.classList.toggle("on", l.querySelector("input").checked);
   });
   $("stage").classList.toggle("plain",!S.grid);
-  buildModeSeg(); buildRoleWho();
+  buildModeSeg(); buildRoleWho(); buildFlatSeg();
   paintCard(); fit();
   renderPeople(); renderBase(); refreshSolos(); renderLayers(); syncLayerUI();
   syncRoleSel(); sync();
@@ -1648,6 +1709,7 @@ function start(hot){
       if(o.show.solo===undefined) o.show.solo=true;
       o.layers=o.layers||[]; o.baseCrop=o.baseCrop||{x:0,y:0,z:1};
       o.mode=[1,2,3,4].indexOf(+o.mode)>=0?+o.mode:1;
+      o.flat=!!o.flat;
       n=o; } } }catch(e){} }
   if(!n) n=S;
   apply(n);

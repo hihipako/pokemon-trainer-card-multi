@@ -146,6 +146,38 @@ async function run() {
     return labs.join(",") === "Trainer A,Trainer B,Trainer C,Trainer D" || labs.join(",");
   });
 
+  check("3인 이상에서만 높이를 고를 수 있다", () => {
+    setMode(1);
+    const off = qsa("#flatSeg button").every(b => b.disabled);
+    setMode(4);
+    const on = qsa("#flatSeg button").every(b => !b.disabled);
+    return (off && on) || "1인 잠김:" + off + " 4인 풀림:" + on;
+  });
+  check("낮게 — 카드 높이가 1인과 같아진다", () => {
+    const getH = () => win.getComputedStyle(doc.documentElement).getPropertyValue("--ch").trim();
+    setMode(1); const one = getH();
+    setMode(4); const tall = getH();
+    click(qsa("#flatSeg button").find(b => b.dataset.v === "1"));
+    const flat = getH();
+    return (tall === "1072px" && flat === one) || "1인 " + one + " · 높게 " + tall + " · 낮게 " + flat;
+  });
+  check("낮게에서는 카드에 flat 표시가 붙는다", () => {
+    return $("card").classList.contains("flat") || $("card").className;
+  });
+  check("낮게에서도 사람 4 · 막대 24 · 덩어리 4", () => {
+    const p = qsa(".person").length, b = qsa(".person .bar").length, g = qsa("#stage .party").length;
+    return (p === 4 && b === 24 && g === 4) || "사람 " + p + " · 막대 " + b + " · 덩어리 " + g;
+  });
+  check("높게로 되돌아간다", () => {
+    click(qsa("#flatSeg button").find(b => b.dataset.v === "0"));
+    return !$("card").classList.contains("flat");
+  });
+  check("1인으로 가면 높이 선택이 다시 잠긴다", () => {
+    setMode(1);
+    const off = qsa("#flatSeg button").every(b => b.disabled);
+    setMode(4);
+    return off || "안 잠김";
+  });
   /* ── 3. 포켓몬 넣기 ─────────────────────────── */
   check("C의 3번 막대를 누르면 편집창이 열림", () => {
     const person = qsa(".person")[2];
