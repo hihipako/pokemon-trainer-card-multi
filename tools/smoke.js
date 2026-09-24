@@ -329,6 +329,117 @@ async function run() {
     const src = im.getAttribute("src") || "";
     return src.startsWith("data:image/png;base64,AA==") || "src: " + src.slice(0, 40);
   });
+  /* ── 8-2. 베타 피드백으로 고친 것들 ──────────── */
+  await (async () => {
+    /* 단독샷을 바꾸거나 뺄 수 있어야 한다 */
+    click(qsa(".solo")[1]);
+    await tick(120);
+    check("단독샷을 다시 누르면 자르기 창이 열린다", () => $("cropModal").hidden === false);
+    check("사진이 있으면 바꾸기·빼기가 보인다",
+      () => ($("cropSwap").hidden === false && $("cropDel").hidden === false)
+        || `바꾸기:${$("cropSwap").hidden} 빼기:${$("cropDel").hidden}`);
+    click($("cropDel"));
+    await tick(80);
+    check("빼기를 누르면 단독샷이 사라진다", () => {
+      const im = qsa(".person")[1].querySelector(".solo img");
+      return im === null || "아직 남아 있음";
+    });
+    click(qsa(".solo")[1]);
+    await tick(80);
+    check("사진이 없으면 바꾸기·빼기가 숨는다",
+      () => $("fileBase").dataset.kind === "solo" || "자르기 창이 열림");
+  })();
+
+  /* 자르기 상자가 단독샷 칸과 같은 비율이어야 한다 (세로 사진이 어긋나던 것) */
+  await (async () => {
+    pickFile($("fileBase"), "solo2.png");
+    await tick(120);
+    check("단독샷 자르기 상자가 실제 칸을 재서 만들어진다", () => {
+      /* 재는 데 성공하면 칸(여기선 300×300)과 같은 비율,
+         못 재면 어림값(가로 104px)이라 훨씬 홀쭉해진다 */
+      const b = $("cropBox");
+      const w = parseFloat(b.style.width), h = parseFloat(b.style.height);
+      return Math.abs(w / h - 1) < 0.05 || `비율 ${(w / h).toFixed(2)} (${w}×${h})`;
+    });
+    click($("cropApply"));
+    await tick(120);
+  })();
+
+  /* 적은 글이 저장한 사진에서 사라지지 않아야 한다 */
+  const typeIn = (root, sel, v) => {
+    const el = root.querySelector(sel);
+    el.value = v; el.dispatchEvent(new win.Event("input", { bubbles: true }));
+  };
+  check("적은 글이 저장용 사본에 바로 들어간다", () => {
+    const p0 = qsa(".person")[0];
+    typeIn(p0, ".f-desc", "여기 적은 설명이 사진에도 나와야 한다");
+    const pf = p0.querySelector(".p-desc").textContent;
+    return pf === "여기 적은 설명이 사진에도 나와야 한다" || "사본: " + JSON.stringify(pf);
+  });
+  check("이름·대사 사본도 따라온다", () => {
+    const p0 = qsa(".person")[0];
+    typeIn(p0, ".f-name", "가인");
+    typeIn(p0, ".f-quote", "한 판 할래?");
+    return (p0.querySelector(".p-name").textContent === "가인"
+      && p0.querySelector(".p-quote").textContent === "한 판 할래?") || "사본이 다름";
+  });
+  check("글을 지우면 사본도 비워진다", () => {
+    const p0 = qsa(".person")[0];
+    typeIn(p0, ".f-quote", "");
+    return p0.querySelector(".p-quote").textContent === "" || "사본이 남음";
+  });
+
+  /* 조건이 남아 있어 복합 타입 검색이 0 마리가 되던 것 */
+  await (async () => {
+    click(qsa(".bar")[0]);
+    await tick(60);
+    change($("genSel"), "1");                     /* 1세대만 켜 둔 채 창을 닫는다 */
+    click($("mClose"));
+    await tick(60);
+    click(qsa(".bar")[1]);
+    await tick(60);
+    check("편집창을 다시 열면 세대·폼 조건이 비워진다",
+      () => ($("genSel").value === "0" && $("formSel").value === "all")
+        || `세대 ${$("genSel").value} 폼 ${$("formSel").value}`);
+    const chips = qsa("#typebar .tchip");
+    click(chips.find(c => c.textContent === "풀"));
+    click(chips.find(c => c.textContent === "고스트"));
+    check("풀+고스트로 모크나이퍼가 나온다", () => {
+      const names = qsa("#res .rit .rn").map(e => e.textContent);
+      return names.includes("모크나이퍼") || `${names.length}마리: ${names.slice(0,5).join(",")}`;
+    });
+    check("조건이 겹쳐 0 마리면 지우는 버튼이 나온다", () => {
+      change($("genSel"), "1");                   /* 1세대에는 풀+고스트가 없다 */
+      const btn = qsa("#res button").find(b => /조건 모두 지우기/.test(b.textContent));
+      if (!btn) return "버튼이 없음";
+      click(btn);
+      return qsa("#res .rit").length > 0 || "지워도 결과가 없음";
+    });
+  })();
+
+  /* 몬스터볼 칸 */
+  await (async () => {
+    check("몬스터볼 목록이 채워진다", () => {
+      const n = $("e_ball").querySelectorAll("option").length;
+      return n > 30 || "개수 " + n;
+    });
+    change($("q"), "님피아");
+    $("q").dispatchEvent(new win.Event("input", { bubbles: true }));
+    await tick(60);
+    click(qsa("#res .rit")[0]);
+    await tick(60);
+    change($("e_ball"), "럭셔리볼");
+    check("막대에 볼 아이콘이 붙는다", () => {
+      const ball = qs(".bar .ball");
+      return (ball && /background-position/.test(ball.getAttribute("style") || "")) || "아이콘이 없음";
+    });
+    check("창을 다시 열면 고른 볼이 그대로다", () => {
+      click($("mDone"));
+      click(qs(".bar:not(.empty)"));
+      return $("e_ball").value === "럭셔리볼" || "값: " + $("e_ball").value;
+    });
+  })();
+
   /* ── 9. 리셋 ────────────────────────────────── */
   check("리셋은 두 번 눌러야 지워짐", () => {
     click($("resetBtn"));

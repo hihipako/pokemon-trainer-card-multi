@@ -88,7 +88,10 @@ body.exporting .modebar{display:none}
 .resetbtn.arm{background:#e0484d;border-color:#e0484d;color:#fff}
 
 /* 내보내기 순간에만 바뀌는 모습 */
-.pf{display:none;white-space:pre-wrap;word-break:keep-all}
+.pf{display:none;white-space:pre-wrap;word-break:keep-all;overflow:hidden}
+.ball{flex:none;width:21px;height:21px;background-image:var(--ballsheet);background-repeat:no-repeat;image-rendering:pixelated}
+.card.m2 .ball,.card.m3 .ball,.card.m4 .ball{width:18px;height:18px}
+.ball.big{width:30px;height:30px}
 body.exporting .fld{display:none}
 body.exporting .pf{display:block}
 body.exporting .ent.empty,
@@ -528,6 +531,8 @@ select.tin{cursor:pointer}
     </div>
     <div class="sfoot">
       <button class="btn g sm" id="cropReset" type="button">꽉 채우기</button>
+      <button class="btn g sm" id="cropSwap" type="button">사진 바꾸기</button>
+      <button class="btn g sm" id="cropDel" type="button">빼기</button>
       <button class="btn" id="cropApply" type="button">적용</button>
     </div>
   </div>
@@ -582,6 +587,9 @@ select.tin{cursor:pointer}
             <select class="tin" id="e_title" style="flex:1 1 240px"></select></div>
           <div class="frow"><span class="lbl">리본</span>
             <select class="tin" id="e_ribbon" style="flex:1 1 240px"></select></div>
+          <div class="frow"><span class="lbl">몬스터볼</span>
+            <span class="ball big" id="e_ballIcon" hidden></span>
+            <select class="tin" id="e_ball" style="flex:1 1 240px"></select></div>
         </div>
       </div>
     </div>
@@ -602,6 +610,18 @@ select.tin{cursor:pointer}
 "use strict";
 var P = JSON.parse(document.getElementById("pay").textContent);
 var MONS = P.mons, TYPES = P.types, COLS = P.cols, MARKS = P.marks, RIBBONS = P.ribbons, ROLES = P.roles || [];
+var BALLS = (P.balls && P.balls.list) || [];
+if(P.balls) document.documentElement.style.setProperty("--ballsheet","url("+P.balls.sheet+")");
+/** 볼 아이콘 — 한 줄짜리 시트에서 한 칸을 잘라 쓴다 */
+function ballStyle(bi){
+  var n=BALLS.length||1;
+  return "background-size:"+(n*100)+"% 100%;background-position:"+
+         (n>1 ? (bi/(n-1)*100) : 0)+"% 0;";
+}
+function ballIndex(name){
+  for(var i=0;i<BALLS.length;i++) if(BALLS[i].k===name) return i;
+  return -1;
+}
 document.documentElement.style.setProperty("--sheet-cols", COLS);
 document.documentElement.style.setProperty("--sheet-rows", Math.ceil(MONS.length / COLS));
 
@@ -622,7 +642,7 @@ MONS.forEach(function(m){ byId[m.i]=m; m._c=choOf(m.k); m._e=m.e.toLowerCase(); 
 function isCho(q){ if(!q) return false; for(var i=0;i<q.length;i++) if(CHO.indexOf(q.charAt(i))<0) return false; return true; }
 function gendersOf(m){ return m.g<0?[]:(m.g===0?["m"]:(m.g===8?["f"]:["m","f"])); }
 function newEnt(id){ var m=byId[id]; if(!m) return null; var g=gendersOf(m);
-  return {id:id,nick:"",size:"",title:"",ribbon:"",g:g.length?g[0]:"n",sh:false}; }
+  return {id:id,nick:"",size:"",title:"",ribbon:"",ball:"",g:g.length?g[0]:"n",sh:false}; }
 
 /* ── 카드 크기 ───────────────────────────────────── */
 var MODES = {
@@ -746,13 +766,61 @@ window.addEventListener("resize", fit);
 window.addEventListener("orientationchange", function(){ setTimeout(fit,120); });
 
 function spStyle(m){ return "--col:"+(m.x%COLS)+";--row:"+Math.floor(m.x/COLS)+";"; }
-function grow(el){ el.style.height="auto"; el.style.height=el.scrollHeight+"px"; }
+/* 칸마다 허용할 줄 수 — 0 이면 상자 높이에 맞춘다(설명 칸) */
+var LINECAP={"f-name":{n:2,lh:1.16},"f-role":{n:2,lh:1.45},"f-quote":{n:3,lh:1.5},"f-desc":{n:0,lh:1.62}};
+var FSBASE={};                                   /* 기준 글자 크기는 모드마다 한 번만 잰다 */
+function capOf(el){ for(var k in LINECAP) if(el.classList.contains(k)) return k; return null; }
+/** 글이 칸을 넘지 않게 맞춘다 — 넘치면 글자를 조금씩 줄인다 */
+function grow(el){
+  var key=capOf(el); if(!key) return;
+  var c=LINECAP[key], fixed=!c.n;
+  el.style.fontSize="";
+  if(!fixed) el.style.height="auto";
+  var ck=key+"|"+S.mode;
+  if(FSBASE[ck]==null) FSBASE[ck]=parseFloat(getComputedStyle(el).fontSize)||13;
+  var base=FSBASE[ck], f=base, guard=0;
+  function over(){
+    return fixed ? el.scrollHeight > el.clientHeight+1
+                 : el.scrollHeight > f*c.lh*c.n+1;
+  }
+  while(over() && f>base*0.66 && guard++<14){
+    f=Math.round((f-base*0.05)*100)/100;
+    el.style.fontSize=f+"px";
+    if(!fixed) el.style.height="auto";
+  }
+  if(!fixed) el.style.height=Math.min(el.scrollHeight, Math.ceil(f*c.lh*c.n)+2)+"px";
+}
+
+/** 저장(PNG)에 쓰이는 글자 사본을 지금 내용으로 맞춘다.
+    이게 빠져 있어서 적은 글이 저장한 사진에서 사라졌다. */
+function copyToPf(fld, pf){
+  if(!pf) return;
+  pf.textContent=fld.value||"";
+  pf.style.fontSize=fld.style.fontSize||"";       /* 화면에서 보이던 크기 그대로 */
+  pf.style.height=fld.offsetHeight?fld.offsetHeight+"px":"";
+}
+function mirrorOne(root, fsel, psel){
+  var fld=root.querySelector(fsel), pf=root.querySelector(psel);
+  if(fld) copyToPf(fld, pf);
+}
+function fillMirrors(){
+  var list=$("card").querySelectorAll(".person");
+  for(var i=0;i<list.length;i++){
+    var pi=+list[i].dataset.p, p=S.people[pi];
+    if(!p) continue;
+    mirrorOne(list[i],".f-name",".p-name");
+    mirrorOne(list[i],".f-role",".p-role");
+    mirrorOne(list[i],".f-quote",".p-quote");
+    mirrorOne(list[i],".f-desc",".p-desc");
+  }
+}
 
 /* ── 사람 칸 그리기 ──────────────────────────────── */
-function bindFld(el, get, set, autogrow){
+function bindFld(el, get, set, pf){
   el.value = get() || "";
-  el.addEventListener("input", function(){ set(el.value); if(autogrow) grow(el); save(); });
-  if(autogrow) setTimeout(function(){ grow(el); },0);
+  function sync(){ grow(el); copyToPf(el, pf); }
+  el.addEventListener("input", function(){ set(el.value); sync(); save(); });
+  setTimeout(sync, 0);
 }
 function makePerson(pi){
   var p=S.people[pi];
@@ -765,21 +833,21 @@ function makePerson(pi){
   var nm=document.createElement("textarea");
   nm.className="fld f-name"; nm.rows=1; nm.maxLength=20; nm.placeholder="이름";
   nm.setAttribute("autocomplete","off"); nm.spellcheck=false;
-  bindFld(nm, function(){ return p.name; }, function(v){ p.name=v; }, true);
-  var pnm=document.createElement("div"); pnm.className="pf p-name"; pnm.textContent=p.name||"";
+  var pnm=document.createElement("div"); pnm.className="pf p-name";
+  bindFld(nm, function(){ return p.name; }, function(v){ p.name=v; }, pnm);
   var rl=document.createElement("textarea");
   rl.className="fld f-role"; rl.rows=1; rl.maxLength=30; rl.placeholder="신분 · 직책";
   rl.setAttribute("autocomplete","off"); rl.spellcheck=false;
-  bindFld(rl, function(){ return p.role; }, function(v){ p.role=v; syncRoleSel(); }, true);
-  var prl=document.createElement("div"); prl.className="pf p-role"; prl.textContent=p.role||"";
+  var prl=document.createElement("div"); prl.className="pf p-role";
+  bindFld(rl, function(){ return p.role; }, function(v){ p.role=v; syncRoleSel(); }, prl);
   blkName.appendChild(nm); blkName.appendChild(pnm); blkName.appendChild(rl); blkName.appendChild(prl);
 
   var blkQ=document.createElement("div"); blkQ.className="blk quote"; blkQ.hidden=!S.show.quote;
   var qt=document.createElement("textarea");
   qt.className="fld f-quote"; qt.rows=1; qt.maxLength=70; qt.placeholder="한 줄 대사";
   qt.setAttribute("autocomplete","off"); qt.spellcheck=false;
-  bindFld(qt, function(){ return p.quote; }, function(v){ p.quote=v; }, true);
-  var pqt=document.createElement("div"); pqt.className="pf p-quote"; pqt.textContent=p.quote||"";
+  var pqt=document.createElement("div"); pqt.className="pf p-quote";
+  bindFld(qt, function(){ return p.quote; }, function(v){ p.quote=v; }, pqt);
   blkQ.appendChild(qt); blkQ.appendChild(pqt);
 
   var blkD=document.createElement("div"); blkD.className="blk grow"; blkD.hidden=!S.show.desc;
@@ -787,8 +855,8 @@ function makePerson(pi){
   var ds=document.createElement("textarea");
   ds.className="fld f-desc"; ds.rows=3; ds.maxLength=400; ds.placeholder="설명";
   ds.setAttribute("autocomplete","off"); ds.spellcheck=false;
-  bindFld(ds, function(){ return p.desc; }, function(v){ p.desc=v; }, false);
-  var pds=document.createElement("div"); pds.className="pf p-desc"; pds.textContent=p.desc||"";
+  var pds=document.createElement("div"); pds.className="pf p-desc";
+  bindFld(ds, function(){ return p.desc; }, function(v){ p.desc=v; }, pds);
   blkD.appendChild(lab2); blkD.appendChild(ds); blkD.appendChild(pds);
 
   var pb=document.createElement("div"); pb.className="pbars";
@@ -845,6 +913,13 @@ function fillBars(w, pi){
     bsp.className="bsp sprite"+(e.sh?" shiny":"");
     bsp.setAttribute("style",spStyle(m));
     b.appendChild(bsp);
+    var bi=ballIndex(e.ball);
+    if(bi>=0){
+      var bl=document.createElement("div"); bl.className="ball";
+      bl.setAttribute("style",ballStyle(bi));
+      bl.title=e.ball;
+      b.appendChild(bl);
+    }
     var main=document.createElement("div"); main.className="bmain";
     var parts=[];
     var species = m.k + (m.f ? "(" + m.f.replace(/의 모습$/,"") + ")" : "");
@@ -1086,7 +1161,7 @@ var cropSrc=null, cropState={x:0,y:0,z:1}, cropNat={w:0,h:0}, cropFrame={w:0,h:0
 var cropTarget={kind:"base"}, cropBox={w:0,h:0}, soloTarget=0;
 function openCrop(src, preset, target){
   cropSrc=src; cropTarget=target||{kind:"base"};
-  cropBox = cropTarget.kind==="solo" ? soloSize() : stageSize();
+  cropBox = cropTarget.kind==="solo" ? soloSize(cropTarget.p) : stageSize();
   var img=$("cropImg"), box=$("cropBox");
   var maxW=Math.min(300,(window.innerWidth||360)-96);
   var maxH=Math.max(180,(window.innerHeight||640)*0.42);
@@ -1100,6 +1175,8 @@ function openCrop(src, preset, target){
     cropState = preset ? {x:+preset.x||0,y:+preset.y||0,z:Math.max(1,+preset.z||1)} : {x:0,y:0,z:1};
     if(preset){ var r=cropFrame.w/cropBox.w; cropState.x*=r; cropState.y*=r; }
     drawCrop();
+    var had = cropTarget.kind==="solo" ? !!S.people[cropTarget.p].solo : !!S.base;
+    $("cropSwap").hidden=!had; $("cropDel").hidden=!had;
     $("cropModal").hidden=false; document.body.classList.add("modal-open");
   };
   img.onerror=function(){ toast("이 이미지는 읽을 수 없어요"); };
@@ -1134,6 +1211,22 @@ $("cropBox").addEventListener("pointerdown",function(ev){
 $("cropZoom").addEventListener("input",function(){ cropState.z=+this.value/100; drawCrop(); });
 $("cropReset").addEventListener("click",function(){ cropState={x:0,y:0,z:1}; drawCrop(); });
 $("cropCancel").addEventListener("click",closeCrop);
+$("cropSwap").addEventListener("click",function(){
+  var t=cropTarget; closeCrop();
+  if(t.kind==="solo"){ soloTarget=t.p; $("fileBase").dataset.kind="solo"; }
+  else $("fileBase").dataset.kind="base";
+  $("fileBase").value=""; $("fileBase").click();
+});
+$("cropDel").addEventListener("click",function(){
+  var t=cropTarget; closeCrop();
+  if(t.kind==="solo"){
+    var p=S.people[t.p];
+    p.solo=null; p.soloCrop={x:0,y:0,z:1}; soloR[t.p]=null;
+    renderPeople(); save(); toast(LETTER[t.p]+" 단독샷을 뺐어요");
+  } else {
+    S.base=null; S.baseCrop={x:0,y:0,z:1}; setStageImage(null); save(); toast("사진을 뺐어요");
+  }
+});
 $("cropModal").addEventListener("click",function(e){ if(e.target===this) closeCrop(); });
 $("cropApply").addEventListener("click",function(){
   if(!cropSrc){ closeCrop(); return; }
@@ -1245,6 +1338,11 @@ function buildRibbonSel(){
     s.appendChild(og);
   });
 }
+function buildBallSel(){
+  var s=$("e_ball"); s.textContent=""; s.appendChild(new Option("볼 없음",""));
+  BALLS.forEach(function(b){ s.appendChild(new Option(b.k, b.k)); });
+  if(!BALLS.length) s.disabled=true;
+}
 function setTab(t){
   Array.prototype.slice.call($("mTabs").children).forEach(function(b){ b.classList.toggle("on", b.dataset.t===t); });
   Array.prototype.slice.call(document.querySelectorAll(".tp")).forEach(function(p){ p.hidden = p.dataset.t!==t; });
@@ -1277,6 +1375,10 @@ function syncModal(){
     $("e_shiny").checked=!!e.sh; $("e_shinyWrap").classList.toggle("on",!!e.sh);
     $("e_title").value=e.title||""; if($("e_title").selectedIndex<0) $("e_title").value="";
     $("e_ribbon").value=e.ribbon||""; if($("e_ribbon").selectedIndex<0) $("e_ribbon").value="";
+    $("e_ball").value=e.ball||""; if($("e_ball").selectedIndex<0) $("e_ball").value="";
+    var bi=ballIndex(e.ball);
+    $("e_ballIcon").hidden = bi<0;
+    if(bi>=0) $("e_ballIcon").setAttribute("style",ballStyle(bi));
   }
   renderRes();
 }
@@ -1287,6 +1389,8 @@ function refreshPerson(pi){
 }
 function openModal(pi,i){
   S.sel={p:pi,i:i}; hiP=pi; hi=i; lastFocus=document.activeElement;
+  $("q").value=""; $("genSel").value="0"; $("formSel").value="all";
+  activeTypes=[]; buildTypebar();          /* 지난번 조건이 남아 0 마리가 되지 않게 */
   refreshPerson(pi);
   $("modal").hidden=false; document.body.classList.add("modal-open");
   setTab(cur()?"set":"mon");
@@ -1315,6 +1419,14 @@ $("e_shiny").addEventListener("change",function(){ var e=cur(); if(!e) return; e
   $("e_shinyWrap").classList.toggle("on",this.checked); refreshPerson(S.sel.p); save(); syncPreview(); });
 $("e_title").addEventListener("change",function(){ var e=cur(); if(!e) return; e.title=this.value; refreshPerson(S.sel.p); save(); syncPreview(); });
 $("e_ribbon").addEventListener("change",function(){ var e=cur(); if(!e) return; e.ribbon=this.value; refreshPerson(S.sel.p); save(); });
+$("e_ball").addEventListener("change",function(){
+  var e=cur(); if(!e) return;
+  e.ball=this.value;
+  var bi=ballIndex(e.ball);
+  $("e_ballIcon").hidden = bi<0;
+  if(bi>=0) $("e_ballIcon").setAttribute("style",ballStyle(bi));
+  refreshPerson(S.sel.p); save();
+});
 
 /* ── 포켓몬 고르기 ───────────────────────────────── */
 var activeTypes=[];
@@ -1338,7 +1450,11 @@ function buildTypebar(){
     w.appendChild(b);
   });
 }
-var LIMIT=120;
+function clearFilters(){
+  $("q").value=""; $("genSel").value="0"; $("formSel").value="all";
+  activeTypes=[]; buildTypebar(); renderRes();
+}
+var LIMIT=300;
 function renderRes(){
   var q=$("q").value.trim().toLowerCase().replace(/\s/g,"");
   var gen=+$("genSel").value, mode=$("formSel").value, cho=isCho(q);
@@ -1353,7 +1469,20 @@ function renderRes(){
     return m._a.toLowerCase().indexOf(q)>=0 || m._e.indexOf(q)>=0 || String(m.d).indexOf(q)>=0;
   });
   var w=$("res"); w.textContent="";
-  if(!hits.length){ var n0=document.createElement("div"); n0.className="none"; n0.textContent="찾는 포켓몬이 없어요."; w.appendChild(n0); return; }
+  if(!hits.length){
+    var on=(q?1:0)+(gen?1:0)+(mode!=="all"?1:0)+activeTypes.length;
+    var n0=document.createElement("div"); n0.className="none";
+    n0.textContent = on>1 ? "조건을 모두 만족하는 포켓몬이 없어요." : "찾는 포켓몬이 없어요.";
+    w.appendChild(n0);
+    if(on){
+      var rb=document.createElement("button"); rb.type="button"; rb.className="btn g sm";
+      rb.style.cssText="display:block;margin:8px auto 0";
+      rb.textContent="조건 모두 지우기";
+      rb.addEventListener("click", clearFilters);
+      w.appendChild(rb);
+    }
+    return;
+  }
   var fr=document.createDocumentFragment();
   hits.slice(0,LIMIT).forEach(function(m){
     var b=document.createElement("button"); b.type="button";
@@ -1364,7 +1493,7 @@ function renderRes(){
     if(m.f){ var f=document.createElement("div"); f.className="rf"; f.textContent=m.f; b.appendChild(f); }
     b.addEventListener("click",function(){
       var keep=S.people[S.sel.p].ents[S.sel.i], ne=newEnt(m.i);
-      if(keep){ ne.nick=keep.nick; ne.size=keep.size; ne.title=keep.title; ne.ribbon=keep.ribbon;
+      if(keep){ ne.nick=keep.nick; ne.size=keep.size; ne.title=keep.title; ne.ribbon=keep.ribbon; ne.ball=keep.ball||"";
         if(gendersOf(m).indexOf(keep.g)>=0) ne.g=keep.g; ne.sh=keep.sh; }
       S.people[S.sel.p].ents[S.sel.i]=ne;
       refreshPerson(S.sel.p); save(); syncModal(); setTab("set");
@@ -1414,9 +1543,8 @@ $("roleSel").addEventListener("change",function(){
   if(!this.value) return;
   S.people[roleWho].role=this.value;
   var el=$("card").querySelector('.person[data-p="'+roleWho+'"] .f-role');
-  if(el){ el.value=this.value; grow(el); }
   var pf=$("card").querySelector('.person[data-p="'+roleWho+'"] .p-role');
-  if(pf) pf.textContent=this.value;
+  if(el){ el.value=this.value; grow(el); copyToPf(el, pf); }
   save();
 });
 
@@ -1618,6 +1746,7 @@ saveBtn.addEventListener("click",function(){
   var restore=function(){ document.body.classList.remove("exporting"); fit(); saveBtn.disabled=false; saveBtn.textContent=old; };
   Promise.all([loadH2C(), claudeDownloads()]).then(function(r){
     var h2c=r[0], dl=r[1];
+    fillMirrors();                       /* 적은 글이 그대로 찍히도록 */
     document.body.classList.add("exporting");
     document.documentElement.style.setProperty("--k","1");
     return new Promise(function(res){ requestAnimationFrame(function(){ requestAnimationFrame(res); }); })
@@ -1678,7 +1807,7 @@ function start(hot){
   try{ var t=localStorage.getItem(KEY+".theme"); if(t) document.documentElement.setAttribute("data-theme",t); }catch(e){}
   themeLab();
   for(var g=1;g<=9;g++) $("genSel").appendChild(new Option(g+"세대",g));
-  buildTypebar(); buildRoleSel(); buildTitleSel(); buildRibbonSel();
+  buildTypebar(); buildRoleSel(); buildTitleSel(); buildRibbonSel(); buildBallSel();
   buildSeg($("e_size"), SIZES.map(function(s){ return {label:s,v:s}; }), function(v){
     var e=cur(); if(!e) return; e.size = (e.size===v ? "" : v); markSeg($("e_size"),e.size); refreshPerson(S.sel.p); save();
   });
