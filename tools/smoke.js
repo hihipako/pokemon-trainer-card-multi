@@ -165,7 +165,7 @@ async function run() {
     setMode(4); const tallH = g("--ch"), tallW = g("--cw");
     click(qsa("#flatSeg button").find(b => b.dataset.v === "1"));
     const flatH = g("--ch"), flatW = g("--cw");
-    return (tallH === "1072px" && flatH === oneH && flatW === "2020px" && tallW === "1320px")
+    return (tallH === "1518px" && flatH === oneH && flatW === "2460px" && tallW === "1320px")
       || "1인높이 " + oneH + " · 쌓기 " + tallW + "×" + tallH + " · 가로로 " + flatW + "×" + flatH;
   });
   check("가로로에서는 카드에 flat 표시가 붙는다", () => {
@@ -179,11 +179,31 @@ async function run() {
     const dir = win.getComputedStyle(qs("#colL")).flexDirection;
     return dir === "row" || "flex-direction: " + dir;
   });
-  check("3인 가로로 — 카드 1664 폭", () => {
+  check("3인 가로로 — 카드 2104 폭", () => {
     setMode(3);
     const w = win.getComputedStyle(doc.documentElement).getPropertyValue("--cw").trim();
     setMode(4);
-    return w === "1664px" || w;
+    return w === "2104px" || w;
+  });
+  check("쌓기에서도 사람이 옆으로 늘어선다", () => {
+    click(qsa("#flatSeg button").find(b => b.dataset.v === "0"));
+    const dir = win.getComputedStyle(qs("#colL")).flexDirection;
+    return dir === "row" || "flex-direction: " + dir;
+  });
+  check("쌓기는 단체샷이 한 줄을 통째로 쓴다", () => {
+    const cols = win.getComputedStyle($("card")).gridTemplateColumns;
+    const rows = win.getComputedStyle($("card")).gridTemplateRows;
+    const h = win.getComputedStyle(doc.documentElement).getPropertyValue("--stage-h").trim();
+    /* 가상 브라우저는 var() 를 풀지 않으므로 둘 다 받아준다 */
+    return (cols === "1fr" && /(430px|stage-h)/.test(rows) && h === "430px")
+      || `열 ${cols} / 행 ${rows} / 높이 ${h}`;
+  });
+  check("쌓기의 도트 네 덩어리가 가로로 늘어선다", () => {
+    const ys = qsa("#stage .party").map(g => g.style.top);
+    const xs = qsa("#stage .party").map(g => parseFloat(g.style.left));
+    const sameRow = ys.every(y => y === ys[0]);
+    const spread = xs.every((x, i) => i === 0 || x > xs[i - 1]);
+    return (ys.length === 4 && sameRow && spread) || `위 ${ys.join(",")} / 왼 ${xs.join(",")}`;
   });
   check("쌓기로 되돌아간다", () => {
     click(qsa("#flatSeg button").find(b => b.dataset.v === "0"));

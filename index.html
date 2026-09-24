@@ -16,7 +16,7 @@
   --sh:0 1px 2px rgba(60,40,80,.05),0 10px 26px -14px rgba(60,40,80,.3);
   --sh-up:0 8px 18px rgba(40,25,60,.18),0 30px 60px -20px rgba(40,25,60,.5);
   /* 카드는 이 크기로 그린 뒤 통째로 확대·축소한다 — 어느 화면에서도 비율이 같다 */
-  --cw:1120px; --ch:700px; --k:1;
+  --cw:1120px; --ch:700px; --k:1; --stage-h:430px;
   /* 스프라이트시트 격자 — 데이터가 늘면 아래 스크립트가 실제 값으로 덮어쓴다 */
   --sheet-cols:32; --sheet-rows:48;
 }
@@ -142,6 +142,14 @@ body.exporting .bar:hover,body.exporting .ent:hover{border-color:var(--cln)}
 }
 .card.m2,.card.m3,.card.m4{grid-template-columns:340px 1fr 340px}
 
+/* 3·4인 쌓기 — A B ǀ 단체샷 ǀ C D 를 위아래 세 줄로 쌓는다.
+   단체샷이 카드 가로를 다 쓰므로 양옆에 걸릴 것이 없어 가로로 긴 사진칸이 된다. */
+.card.m3:not(.flat),.card.m4:not(.flat){
+  grid-template-columns:1fr;
+  grid-template-rows:1fr var(--stage-h) 1fr;
+}
+.card.m3:not(.flat) .col,.card.m4:not(.flat) .col{flex-direction:row}
+
 /* 가로로 펼친 3·4인 — 세로를 1인 카드에 맞추고 사람을 옆으로 늘어놓는다.
    A B ǀ 단체샷 ǀ C D — 사람 칸은 1·2인과 같은 높이라 글씨를 줄일 필요가 없다. */
 .card.flat .col{flex-direction:row}
@@ -149,7 +157,7 @@ body.exporting .bar:hover,body.exporting .ent:hover{border-color:var(--cln)}
 .card.m3.flat{grid-template-columns:696px 1fr 340px}
 .card.m3.flat #colR{justify-content:stretch}
 .card.m3.flat #colR .person{flex:1 1 0}
-/* 3인 — 오른쪽은 한 명뿐이니 억지로 늘리지 않고 위에 붙인다 */
+/* 3인 — 오른쪽은 한 명뿐이니 억지로 늘리지 않고 앞쪽에 붙인다 */
 .card.m3 #colR{justify-content:flex-start}
 .card.m3 #colR .person{flex:0 0 calc((100% - 16px) / 2)}
 
@@ -408,8 +416,9 @@ select.tin{cursor:pointer}
             <h4><span class="n">01</span>카드 모양</h4>
             <div class="row"><div class="seg" id="flatSeg"></div></div>
             <p class="mini" style="margin:8px 0 0">세 명 이상일 때 고를 수 있어요.
+              <b>쌓기</b> 는 <code>A B / 단체샷 / C D</code> 세 줄로 쌓아 정사각에 가깝고,
               <b>가로로</b> 는 <code>A B ǀ 단체샷 ǀ C D</code> 한 줄로 늘어놓아 1·2인과 세로 길이가 같아집니다.
-              사람 칸이 그만큼 넉넉해서 글씨는 그대로예요.</p>
+              단체샷은 둘 다 가로로 긴 직사각형이에요.</p>
           </div>
 
           <div class="msec">
@@ -645,13 +654,14 @@ function newEnt(id){ var m=byId[id]; if(!m) return null; var g=gendersOf(m);
 var MODES = {
   1:{cw:1120, ch:700},
   2:{cw:1320, ch:560},
-  3:{cw:1320, ch:1072},
-  4:{cw:1320, ch:1072}
+  3:{cw:1320, ch:1518},
+  4:{cw:1320, ch:1518}
 };
+var STAGE_H = 430;                    /* 쌓기의 단체샷 높이 — CSS 의 --stage-h 와 같아야 한다 */
 var SIDE_W = 340, PAD = 18, GAP = 16;
 /* 가로로 펼친 3·4인 — 세로는 1인 카드와 같은 700, 대신 옆으로 넓어진다.
-   가로 = 여백 36 + 사람칸들 + 칸 사이 + 단체샷 560 */
-var FLAT = { 3:{cw:1664, ch:700}, 4:{cw:2020, ch:700} };
+   가로 = 여백 36 + 사람칸들 + 칸 사이 + 단체샷 1000 */
+var FLAT = { 3:{cw:2104, ch:700}, 4:{cw:2460, ch:700} };
 function isFlat(){ return S.mode>=3 && !!S.flat; }
 function cardSize(){
   if(isFlat()) return FLAT[S.mode];
@@ -673,7 +683,10 @@ function stageSize(){
   if(m) return m;
   var c=cardSize();                                   /* 아직 안 그려졌을 때의 어림값 */
   if(S.mode===1) return { w:(c.cw-PAD*2-GAP)/2, h:c.ch-PAD*2 };
-  return { w:c.cw-PAD*2-GAP*2-SIDE_W*2, h:c.ch-PAD*2 };
+  if(S.mode>=3 && !isFlat()) return { w:c.cw-PAD*2, h:STAGE_H };   /* 쌓기는 가로를 다 쓴다 */
+  var pair = SIDE_W*2+GAP;                            /* 가로로 펼쳤을 때 두 사람이 쓰는 폭 */
+  var side = isFlat() ? (S.mode===4 ? pair*2 : pair+SIDE_W) : SIDE_W*2;
+  return { w:c.cw-PAD*2-GAP*2-side, h:c.ch-PAD*2 };
 }
 var SOLO_W = 104;
 function soloSize(pi){
@@ -681,8 +694,8 @@ function soloSize(pi){
   var m = boxSizeOf(el);
   if(m) return m;
   var c=cardSize();
-  var rows = S.mode>=3 ? 2 : 1;
-  var colH = (c.ch-PAD*2 - (rows-1)*GAP) / rows;
+  var rows = (S.mode>=3 && !isFlat()) ? 2 : 1;     /* 쌓기만 사람 줄이 둘이다 */
+  var colH = (c.ch-PAD*2 - (rows-1)*GAP - (rows>1 ? STAGE_H+GAP : 0)) / rows;
   var textH = 0;
   if(S.show.name) textH += 76;
   if(S.show.quote) textH += 46;
@@ -974,7 +987,8 @@ function renderPeople(){
 }
 
 /* ── 엔트리 도트 ─────────────────────────────────── */
-/* 사람마다 여섯 개가 한 덩어리. 2인은 좌·우, 3~4인은 네 귀퉁이에서 시작한다. */
+/* 사람마다 여섯 개가 한 덩어리. 2인은 좌·우,
+   3~4인 쌓기는 낮고 넓은 단체샷에 맞춰 가로로 고르게, 가로로는 네 귀퉁이에서 시작한다. */
 function partySize(){
   var D=(S.mode===1?88:74), G=7, off=(S.mode===1?26:22);
   return { w:2*D+G, h:3*D+2*G+off };
@@ -985,6 +999,12 @@ function defaultParty(pi){
   var bx, by;
   if(S.mode===1){ bx=padX; by=0.50*st.h; }
   else if(S.mode===2){ bx=(pi===0 ? padX : st.w-c.w-padX); by=(st.h-c.h)/2; }
+  else if(!isFlat()){
+    /* 쌓기의 단체샷은 낮고 넓다 — 네 덩어리를 가로로 고르게 늘어놓는다 */
+    var gapX=Math.max(padX, (st.w - S.mode*c.w) / (S.mode+1));
+    bx=gapX*(pi+1) + c.w*pi;
+    by=(st.h-c.h)/2;
+  }
   else { bx=(pi<2 ? padX : st.w-c.w-padX);
          by=(pi%2===0 ? padY : st.h-c.h-padY); }
   return { x:bx/st.w*100, y:by/st.h*100 };
