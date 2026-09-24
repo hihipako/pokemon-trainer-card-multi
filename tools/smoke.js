@@ -82,6 +82,12 @@ const click = el => el.dispatchEvent(new win.Event("click", { bubbles: true, can
 const input = (el, v) => { el.value = v; el.dispatchEvent(new win.Event("input", { bubbles: true })); };
 const change = (el, v) => { if (v !== undefined) el.value = v; el.dispatchEvent(new win.Event("change", { bubbles: true })); };
 const tick = ms => new Promise(r => win.setTimeout(r, ms || 30));
+/* 조건이 될 때까지 기다린다 — 가상 브라우저는 실제보다 느려 고정 대기로는 들쭉날쭉하다 */
+const waitFor = async (fn, ms = 4000) => {
+  const until = Date.now() + ms;
+  while (Date.now() < until) { if (fn()) return true; await tick(20); }
+  return false;
+};
 const pickFile = (inputEl, name) => {
   const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
   const file = new win.File([png], name, { type: "image/png" });
@@ -297,11 +303,11 @@ async function run() {
   /* ── 8. 사진 ────────────────────────────────── */
   await (async () => {
     pickFile($("fileBase"), "group.png");
-    await tick(80);
+    await waitFor(() => $("cropModal").hidden === false);
     check("사진을 고르면 자르기 화면이 열림", () => $("cropModal").hidden === false);
     check("4인용에선 제목이 단체샷", () => /단체샷/.test($("cropHead").textContent) || $("cropHead").textContent);
     click($("cropApply"));
-    await tick(80);
+    await waitFor(() => $("baseImg").hidden === false);
     check("카드에 단체샷이 들어감", () => $("baseImg").hidden === false && !!$("baseImg").getAttribute("src"));
     check("사진 안내가 사라짐", () => $("stageHint").hidden === true);
   })();
@@ -313,10 +319,10 @@ async function run() {
       return $("fileBase").dataset.kind === "solo";
     });
     pickFile($("fileBase"), "solo.png");
-    await tick(80);
+    await waitFor(() => $("cropModal").hidden === false);
     check("단독샷 자르기 제목에 사람이 나온다", () => /단독샷/.test($("cropHead").textContent) || $("cropHead").textContent);
     click($("cropApply"));
-    await tick(120);
+    await waitFor(() => qsa(".solo img").length >= 1);
     check("단독샷이 칸에 들어감", () => {
       const im = qsa(".solo img");
       return im.length >= 1 || "이미지 " + im.length;
@@ -333,7 +339,7 @@ async function run() {
   await (async () => {
     /* 단독샷을 바꾸거나 뺄 수 있어야 한다 */
     click(qsa(".solo")[1]);
-    await tick(120);
+    await waitFor(() => $("cropModal").hidden === false);
     check("단독샷을 다시 누르면 자르기 창이 열린다", () => $("cropModal").hidden === false);
     check("사진이 있으면 바꾸기·빼기가 보인다",
       () => ($("cropSwap").hidden === false && $("cropDel").hidden === false)
@@ -353,7 +359,7 @@ async function run() {
   /* 자르기 상자가 단독샷 칸과 같은 비율이어야 한다 (세로 사진이 어긋나던 것) */
   await (async () => {
     pickFile($("fileBase"), "solo2.png");
-    await tick(120);
+    await waitFor(() => $("cropModal").hidden === false);
     check("단독샷 자르기 상자가 실제 칸을 재서 만들어진다", () => {
       /* 재는 데 성공하면 칸(여기선 300×300)과 같은 비율,
          못 재면 어림값(가로 104px)이라 훨씬 홀쭉해진다 */

@@ -209,20 +209,17 @@ body.locked .solo{cursor:default}
 .card.m2 .bar .bsp,.card.m3 .bar .bsp,.card.m4 .bar .bsp{--cell:38px}
 .bar .bph{width:52px;height:52px;flex:none;border:1.5px dashed var(--cln);border-radius:9px;display:grid;place-items:center;font-size:16px;opacity:.7}
 .card.m2 .bar .bph,.card.m3 .bar .bph,.card.m4 .bar .bph{width:38px;height:38px;font-size:13px}
-.bar .bmain{flex:1;min-width:0;line-height:1.45;word-break:keep-all;overflow-wrap:anywhere}
-.bar .bempty{font-size:13px;opacity:.85}
+.bar .bmain{flex:1;min-width:0;line-height:1.45;word-break:keep-all;overflow-wrap:anywhere;
+  font-size:16px;overflow:hidden}                 /* 이 크기를 줄이면 안에 것이 다 같이 준다 */
+.card.m2 .bar .bmain,.card.m3 .bar .bmain,.card.m4 .bar .bmain{font-size:13.5px}
+.bar .bempty{font-size:.82em;opacity:.85}
 .bar .p-sl{color:var(--cfg2);opacity:.5;margin:0 4px}
-.bar .p-nick{font-family:var(--display);font-weight:800;font-size:16px}
-.bar .p-sp{font-size:13px;color:var(--cfg2)}
-.bar .p-g{font-size:15px;font-weight:700}
+.bar .p-nick{font-family:var(--display);font-weight:800;font-size:1em}
+.bar .p-sp{font-size:.82em;color:var(--cfg2)}
+.bar .p-g{font-size:.95em;font-weight:700}
 .bar .p-g.m{color:#4a90e2}.bar .p-g.f{color:#ee5fa0}
-.bar .p-sz{font-family:var(--pix);font-size:12px}
-.bar .p-rb{font-size:12.5px;color:var(--cfg2)}
-.card.m2 .bar .p-nick,.card.m3 .bar .p-nick,.card.m4 .bar .p-nick{font-size:13.5px}
-.card.m2 .bar .p-sp,.card.m3 .bar .p-sp,.card.m4 .bar .p-sp{font-size:11px}
-.card.m2 .bar .p-rb,.card.m3 .bar .p-rb,.card.m4 .bar .p-rb{font-size:10px}
-.card.m2 .bar .p-sz,.card.m3 .bar .p-sz,.card.m4 .bar .p-sz{font-size:10px}
-.card.m2 .bar .p-g,.card.m3 .bar .p-g,.card.m4 .bar .p-g{font-size:13px}
+.bar .p-sz{font-family:var(--pix);font-size:.75em}
+.bar .p-rb{font-size:.78em;color:var(--cfg2)}
 body.locked .bar.empty{display:none}
 
 /* 단체샷 */
@@ -812,6 +809,8 @@ function fillMirrors(){
     mirrorOne(list[i],".f-role",".p-role");
     mirrorOne(list[i],".f-quote",".p-quote");
     mirrorOne(list[i],".f-desc",".p-desc");
+    var bb=list[i].querySelectorAll(".bar");   /* 막대 글도 한 번 더 맞춘다 */
+    for(var j=0;j<bb.length;j++) fitBar(bb[j]);
   }
 }
 
@@ -888,6 +887,26 @@ function makePerson(pi){
   wrap.appendChild(blkName); wrap.appendChild(blkQ); wrap.appendChild(blkD); wrap.appendChild(pb);
   return wrap;
 }
+var BARFS={};                                    /* 막대 기준 글자 크기 — 모드마다 한 번만 잰다 */
+var BARLINES=2;                                  /* 막대 글은 두 줄까지 */
+/** 막대 글이 칸을 넘지 않게 — 두 줄을 넘으면 글자를 줄이고, 그래도 넘치면 자른다 */
+function fitBar(b){
+  var m=b.querySelector(".bmain"); if(!m) return;
+  m.style.fontSize=""; m.style.maxHeight="";
+  if(BARFS[S.mode]==null) BARFS[S.mode]=parseFloat(getComputedStyle(m).fontSize)||16;
+  var base=BARFS[S.mode], f=base, guard=0;
+  while(m.scrollHeight > f*1.45*BARLINES+1 && f>base*0.62 && guard++<12){
+    f=Math.round((f-base*0.045)*100)/100;
+    m.style.fontSize=f+"px";
+  }
+  m.style.maxHeight=Math.ceil(f*1.45*BARLINES)+"px";
+}
+function fitBars(w){
+  requestAnimationFrame(function(){
+    var bars=w.querySelectorAll(".bar");
+    for(var i=0;i<bars.length;i++) fitBar(bars[i]);
+  });
+}
 function fillBars(w, pi){
   var p=S.people[pi];
   w.textContent="";
@@ -936,6 +955,7 @@ function fillBars(w, pi){
     b.appendChild(main);
     w.appendChild(b);
   });
+  fitBars(w);
 }
 function renderPeople(){
   var c=$("card");
