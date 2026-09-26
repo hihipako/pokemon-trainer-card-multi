@@ -44,6 +44,19 @@ const dom = new JSDOM(html, {
         win.setTimeout(() => this.dispatchEvent(new win.Event("load")), 0);
       },
     });
+    /* 막대 글의 높이를 흉내 낸다 — 글자가 커질수록 줄 수가 늘어 제곱으로 커진다.
+       .bmain 말고는 0 을 돌려주어 다른 곳의 동작은 그대로 둔다. */
+    Object.defineProperty(win.HTMLElement.prototype, "scrollHeight", {
+      configurable: true,
+      get() {
+        const cls = String(this.className || "");
+        if (!cls.includes("bmain")) return 0;
+        const f = parseFloat(this.style.fontSize) || 16;
+        const chars = (this.textContent || "").length;
+        const W = 80;    /* 가상의 칸 너비 — 글이 가장 안 들어가는 상황을 본다 */
+        return Math.max(1, Math.ceil(chars * f / W)) * Math.round(f * 1.45);
+      },
+    });
     // 레이아웃이 없으므로 카드·사진 칸 크기를 실제 값처럼 돌려준다
     win.Element.prototype.getBoundingClientRect = function () {
       const id = this.id, cls = String(this.className || "");
@@ -463,6 +476,34 @@ async function run() {
       click($("mDone"));
       click(qs(".bar:not(.empty)"));
       return $("e_ball").value === "럭셔리볼" || "값: " + $("e_ball").value;
+    });
+  })();
+
+  /* 글이 길어도 리본까지 다 보여야 한다 (두 줄로 못 박아 두어 잘리던 것) */
+  await (async () => {
+    change($("e_title"), "모래먼지의증표");
+    change($("e_ribbon"), "지니어스리본그레이트");
+    change($("e_nick"), "카레를좋아하는");
+    $("e_nick").dispatchEvent(new win.Event("input", { bubbles: true }));
+    click($("mDone"));
+    await tick(60);
+    const bar = qs(".bar:not(.empty)"), main = bar && bar.querySelector(".bmain");
+    check("긴 글이 들어간 막대를 찾는다", () => {
+      if (!main) return "막대가 없음";
+      return /지니어스리본그레이트/.test(main.textContent) || main.textContent.slice(0, 40);
+    });
+    check("글이 길면 막대 글자가 줄어든다", () => {
+      const f = parseFloat(main.style.fontSize);
+      return (f > 0 && f < 13.5) || "글자 크기 " + (main.style.fontSize || "그대로");
+    });
+    check("리본이 잘리지 않는다", () => {
+      /* 잘린다 = 글 높이가 잘라내는 선(max-height)을 넘는다 */
+      const cut = parseFloat(main.style.maxHeight);
+      return main.scrollHeight <= cut || `글 높이 ${main.scrollHeight} > 잘리는 선 ${cut}`;
+    });
+    check("그래도 읽을 수 있는 크기는 지킨다", () => {
+      const f = parseFloat(main.style.fontSize);
+      return f >= 13.5 * 0.5 || "글자 크기 " + f;
     });
   })();
 
