@@ -335,7 +335,7 @@ select.tin{cursor:pointer}
 .shead .no{font-family:var(--pix);font-size:10px;color:var(--sel);letter-spacing:.1em}
 .shead .now{font-size:11.5px;color:var(--faint);font-weight:500;font-family:var(--body)}
 .sbody{padding:12px 16px 14px;overflow-y:auto;flex:1;min-height:0}
-.sfoot{display:flex;gap:8px;justify-content:space-between;align-items:center;padding:11px 16px 14px;border-top:1px solid var(--line);background:var(--panel-2)}
+.sfoot{display:flex;gap:8px;flex-wrap:wrap;justify-content:space-between;align-items:center;padding:11px 16px 14px;border-top:1px solid var(--line);background:var(--panel-2)}
 .tabs{display:inline-flex;background:var(--inset);border-radius:999px;padding:3px;gap:3px;margin-bottom:12px}
 .tabs button{padding:6px 15px;border-radius:999px;font-size:12.5px;font-weight:700;color:var(--soft)}
 .tabs button.on{background:var(--panel);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.1)}
@@ -533,7 +533,8 @@ select.tin{cursor:pointer}
       <button class="btn g sm" id="cropCancel" type="button">취소</button>
     </div>
     <div class="sbody">
-      <p class="crophint">끌어서 위치를 맞추고, 아래에서 크기를 조절하세요.<br>카드의 사진 칸 비율에 맞춰 잘립니다.</p>
+      <p class="crophint">끌어서 위치를 맞추고, 아래에서 크기를 조절하세요.<br>
+        <b>다 보이게</b> 를 누르면 사진 전체가 들어가고, 남는 자리는 카드 배경색으로 채워집니다.</p>
       <div class="cropbox" id="cropBox"><img id="cropImg" alt=""></div>
       <div class="frow">
         <span class="lbl">크기</span>
@@ -543,6 +544,7 @@ select.tin{cursor:pointer}
     </div>
     <div class="sfoot">
       <button class="btn g sm" id="cropReset" type="button">꽉 채우기</button>
+      <button class="btn g sm" id="cropFit" type="button">다 보이게</button>
       <button class="btn g sm" id="cropSwap" type="button">사진 바꾸기</button>
       <button class="btn g sm" id="cropDel" type="button">빼기</button>
       <button class="btn" id="cropApply" type="button">적용</button>
@@ -1170,22 +1172,29 @@ function setStageImage(dataUrl){
   if(!dataUrl){ im.hidden=true; im.removeAttribute("src"); $("stageHint").hidden=false; return; }
   im.src=dataUrl; im.hidden=false; $("stageHint").hidden=true;
 }
-function cropRect(iw, ih, crop, W, H){
-  var z=Math.max(1,(crop&&crop.z)||1);
+/** 사진을 칸 안 어디에 얼마만 하게 그릴지 — 자르기 창의 미리보기와 같은 식이다.
+    배율이 100% 아래면 사진이 칸보다 작아지고, 남는 자리는 배경색으로 채운다. */
+function cropDraw(iw, ih, crop, W, H){
+  var z=Math.max(.05,(crop&&crop.z)||1);
   var cover=Math.max(W/iw, H/ih), s=cover*z;
-  var sw=W/s, sh=H/s;
-  var cx=iw/2-((crop&&crop.x)||0)/s, cy=ih/2-((crop&&crop.y)||0)/s;
-  return { sx:Math.max(0,Math.min(iw-sw, cx-sw/2)), sy:Math.max(0,Math.min(ih-sh, cy-sh/2)), sw:sw, sh:sh };
+  var dw=iw*s, dh=ih*s;
+  return { dx:(W-dw)/2 + ((crop&&crop.x)||0), dy:(H-dh)/2 + ((crop&&crop.y)||0), dw:dw, dh:dh };
+}
+/** 사진이 칸을 다 덮으려면 필요한 최소 배율 대비, 사진 전체가 들어가는 배율의 비 */
+function containZ(iw, ih, W, H){
+  var cover=Math.max(W/iw, H/ih), fit=Math.min(W/iw, H/ih);
+  return cover>0 ? fit/cover : 1;
 }
 function renderCropped(src, crop, W, H, cb){
   if(!src){ cb(null); return; }
   var img=new Image();
   img.onload=function(){
-    var c=cropRect(img.naturalWidth, img.naturalHeight, crop, W, H);
+    var d=cropDraw(img.naturalWidth, img.naturalHeight, crop, W, H);
     var cv=document.createElement("canvas");
     cv.width=Math.round(W*2); cv.height=Math.round(H*2);
     var ctx=cv.getContext("2d"); ctx.imageSmoothingQuality="high";
-    ctx.drawImage(img, c.sx, c.sy, c.sw, c.sh, 0, 0, cv.width, cv.height);
+    ctx.fillStyle=S.bg; ctx.fillRect(0,0,cv.width,cv.height);   /* 남는 자리는 카드 배경색 */
+    ctx.drawImage(img, d.dx*2, d.dy*2, d.dw*2, d.dh*2);
     var out; try{ out=cv.toDataURL("image/jpeg",.9); }catch(e){ out=src; }
     cb(out);
   };
@@ -1218,11 +1227,12 @@ function shrink(file, max, cb){
 
 /* ── 자르기 화면 ─────────────────────────────────── */
 var cropSrc=null, cropState={x:0,y:0,z:1}, cropNat={w:0,h:0}, cropFrame={w:0,h:0};
-var cropTarget={kind:"base"}, cropBox={w:0,h:0}, soloTarget=0;
+var cropTarget={kind:"base"}, cropBox={w:0,h:0}, soloTarget=0, cropZMin=1;
 function openCrop(src, preset, target){
   cropSrc=src; cropTarget=target||{kind:"base"};
   cropBox = cropTarget.kind==="solo" ? soloSize(cropTarget.p) : stageSize();
   var img=$("cropImg"), box=$("cropBox");
+  box.style.background=S.bg;                          /* 남는 자리가 어떻게 나올지 그대로 보이게 */
   var maxW=Math.min(300,(window.innerWidth||360)-96);
   var maxH=Math.max(180,(window.innerHeight||640)*0.42);
   var w=maxW, h=w*cropBox.h/cropBox.w;
@@ -1232,7 +1242,11 @@ function openCrop(src, preset, target){
   $("cropHead").textContent = cropTarget.kind==="solo" ? (LETTER[cropTarget.p]+" 단독샷 자르기") : (S.mode===1?"트레이너 이미지 자르기":"단체샷 자르기");
   img.onload=function(){
     cropNat={w:img.naturalWidth,h:img.naturalHeight};
-    cropState = preset ? {x:+preset.x||0,y:+preset.y||0,z:Math.max(1,+preset.z||1)} : {x:0,y:0,z:1};
+    /* 맨 왼쪽까지 내리면 사진 전체가 들어가도록 하한을 사진마다 다시 잡는다 */
+    cropZMin = Math.max(.1, Math.floor(containZ(cropNat.w,cropNat.h,cropBox.w,cropBox.h)*100)/100);
+    if(cropZMin>1) cropZMin=1;
+    $("cropZoom").min = Math.round(cropZMin*100);
+    cropState = preset ? {x:+preset.x||0,y:+preset.y||0,z:Math.max(cropZMin,+preset.z||1)} : {x:0,y:0,z:1};
     if(preset){ var r=cropFrame.w/cropBox.w; cropState.x*=r; cropState.y*=r; }
     drawCrop();
     var had = cropTarget.kind==="solo" ? !!S.people[cropTarget.p].solo : !!S.base;
@@ -1246,7 +1260,7 @@ function closeCrop(){ $("cropModal").hidden=true; document.body.classList.remove
 function clampCrop(){
   var cover=Math.max(cropFrame.w/cropNat.w, cropFrame.h/cropNat.h), s=cover*cropState.z;
   var lx=Math.max(0,(cropNat.w*s-cropFrame.w)/2), ly=Math.max(0,(cropNat.h*s-cropFrame.h)/2);
-  cropState.x=Math.max(-lx,Math.min(lx,cropState.x));
+  cropState.x=Math.max(-lx,Math.min(lx,cropState.x));   /* 칸보다 작으면 lx=0 이라 가운데에 놓인다 */
   cropState.y=Math.max(-ly,Math.min(ly,cropState.y));
   return s;
 }
@@ -1270,6 +1284,7 @@ $("cropBox").addEventListener("pointerdown",function(ev){
 });
 $("cropZoom").addEventListener("input",function(){ cropState.z=+this.value/100; drawCrop(); });
 $("cropReset").addEventListener("click",function(){ cropState={x:0,y:0,z:1}; drawCrop(); });
+$("cropFit").addEventListener("click",function(){ cropState={x:0,y:0,z:cropZMin}; drawCrop(); });
 $("cropCancel").addEventListener("click",closeCrop);
 $("cropSwap").addEventListener("click",function(){
   var t=cropTarget; closeCrop();
@@ -1681,7 +1696,13 @@ $("t_grid").addEventListener("change",function(){
   S.grid=this.checked; $("stage").classList.toggle("plain",!this.checked);
   this.closest(".chk").classList.toggle("on",this.checked); save();
 });
-function setBg(v){ S.bg=v; paintCard(); save(); }
+var bgT=null;
+function setBg(v){
+  S.bg=v; paintCard(); save();
+  /* 사진에 여백이 있으면 그 색도 같이 바뀌어야 한다 — 연달아 부르므로 몰아서 다시 그린다 */
+  clearTimeout(bgT);
+  bgT=setTimeout(function(){ renderBase(); refreshSolos(); }, 80);
+}
 $("sw_w").addEventListener("click",function(){ setBg("#ffffff"); });
 $("sw_k").addEventListener("click",function(){ setBg("#111111"); });
 $("bgPick").addEventListener("input",function(){ setBg(this.value); });

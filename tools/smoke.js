@@ -7,6 +7,7 @@
 "use strict";
 const fs = require("fs");
 const path = require("path");
+const painted = [];            /* 캔버스에 칠하고 그린 기록 */
 const { JSDOM, VirtualConsole } = require("jsdom");
 
 const ROOT = path.resolve(__dirname, "..");
@@ -29,9 +30,19 @@ const dom = new JSDOM(html, {
     });
     if (!win.TextEncoder) win.TextEncoder = global.TextEncoder;
     if (!win.TextDecoder) win.TextDecoder = global.TextDecoder;
-    win.HTMLCanvasElement.prototype.getContext = () => ({
-      drawImage(){}, fillRect(){}, set imageSmoothingQuality(v){},
-    });
+    /* 캔버스에 무엇을 칠하고 무엇을 그렸는지 적어 둔다 — 여백을 배경색으로
+       채우는지 확인하려면 순서까지 봐야 한다 */
+    win.HTMLCanvasElement.prototype.getContext = function () {
+      const cv = this;
+      return {
+        fillStyle: null,
+        drawImage(img, dx, dy, dw, dh) {
+          painted.push({ 무엇: "그림", dx, dy, dw, dh, 판:[cv.width, cv.height] });
+        },
+        fillRect() { painted.push({ 무엇: "칠", 색: String(this.fillStyle) }); },
+        set imageSmoothingQuality(v) {},
+      };
+    };
     win.HTMLCanvasElement.prototype.toDataURL = () => "data:image/png;base64,AA==";
     // 이미지는 실제로 불러올 수 없으니 800×1200 으로 즉시 불러와진 척한다
     Object.defineProperty(win.HTMLImageElement.prototype, "src", {
@@ -538,6 +549,49 @@ async function run() {
     return gap(big) > gap(small)
       || `작을 때 간격 ${gap(small).toFixed(1)} / 클 때 ${gap(big).toFixed(1)}`;
   });
+
+  /* 사진이 칸보다 작을 때 남는 자리를 배경색으로 채운다 */
+  await (async () => {
+    setMode(1);
+    pickFile($("fileBase"), "wide.png");
+    await waitFor(() => $("cropModal").hidden === false);
+    check("사진 전체가 들어가는 배율까지 내려간다", () => {
+      const min = +$("cropZoom").min;
+      return (min > 0 && min < 100) || "하한 " + min + "%";
+    });
+    check("'다 보이게' 를 누르면 그 배율로 간다", () => {
+      click($("cropFit"));
+      const min = +$("cropZoom").min;
+      return (+$("cropZoom").value === min && $("cropZoomV").textContent === min + "%")
+        || `값 ${$("cropZoom").value} · 표시 ${$("cropZoomV").textContent} · 하한 ${min}`;
+    });
+    painted.length = 0;
+    click($("cropApply"));
+    await waitFor(() => painted.some(p => p.무엇 === "그림"));
+    check("사진을 그리기 전에 배경색으로 칠한다", () => {
+      const i = painted.findIndex(p => p.무엇 === "그림");
+      const before = painted[i - 1];
+      return (before && before.무엇 === "칠" && before.색 === "#ffffff")
+        || "칠한 기록: " + JSON.stringify(painted.slice(0, 3));
+    });
+    check("'다 보이게' 로 넣으면 사진이 칸 안에 온전히 들어간다", () => {
+      const d = painted.find(p => p.무엇 === "그림");
+      if (!d) return "그린 기록이 없음";
+      const [W, H] = d.판;
+      const 안쪽 = d.dw <= W + 1 && d.dh <= H + 1 && d.dx >= -1 && d.dy >= -1;
+      const 여백 = W - d.dw > 1 || H - d.dh > 1;
+      return (안쪽 && 여백)
+        || `사진 ${Math.round(d.dw)}×${Math.round(d.dh)} @${Math.round(d.dx)},${Math.round(d.dy)} / 칸 ${W}×${H}`;
+    });
+    painted.length = 0;
+    click($("sw_k"));                       /* 배경을 검정으로 */
+    await waitFor(() => painted.some(p => p.무엇 === "칠" && p.색 === "#111111"), 1500);
+    check("배경을 검정으로 바꾸면 여백도 검정이 된다", () =>
+      painted.some(p => p.무엇 === "칠" && p.색 === "#111111")
+        || "칠한 색: " + painted.filter(p => p.무엇 === "칠").map(p => p.색).join(","));
+    click($("sw_w"));
+    await tick(150);
+  })();
 
   /* ── 9. 리셋 ────────────────────────────────── */
   check("리셋은 두 번 눌러야 지워짐", () => {
