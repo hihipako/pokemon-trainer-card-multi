@@ -17,6 +17,7 @@
   --sh-up:0 8px 18px rgba(40,25,60,.18),0 30px 60px -20px rgba(40,25,60,.5);
   /* 카드는 이 크기로 그린 뒤 통째로 확대·축소한다 — 어느 화면에서도 비율이 같다 */
   --cw:1120px; --ch:700px; --k:1; --stage-h:430px;
+  --ent-k:1;                    /* 엔트리 도트 크기 — 메뉴의 슬라이더가 바꾼다 */
   /* 스프라이트시트 격자 — 데이터가 늘면 아래 스크립트가 실제 값으로 덮어쓴다 */
   --sheet-cols:32; --sheet-rows:48;
 }
@@ -256,24 +257,26 @@ body.locked .bar.empty{display:none}
 body.locked .layer{cursor:default;pointer-events:none}
 
 /* 엔트리 도트 — 사람마다 여섯 개가 한 덩어리로 움직인다 */
-.party{position:absolute;z-index:30;display:flex;gap:7px;touch-action:none;cursor:move}
+.party{position:absolute;z-index:30;display:flex;gap:calc(7px * var(--ent-k));touch-action:none;cursor:move}
 .party.drag{opacity:.92}
 body.locked .party{cursor:default}
-.pcol{display:flex;flex-direction:column;gap:7px}
-.pcol.off{padding-top:26px}
-.card.m2 .pcol.off,.card.m3 .pcol.off,.card.m4 .pcol.off{padding-top:22px}
+.pcol{display:flex;flex-direction:column;gap:calc(7px * var(--ent-k))}
+.pcol.off{padding-top:calc(26px * var(--ent-k))}
+.card.m2 .pcol.off,.card.m3 .pcol.off,.card.m4 .pcol.off{padding-top:calc(22px * var(--ent-k))}
 .ent{
-  position:relative;width:88px;height:88px;padding:0;border:0;cursor:pointer;
+  position:relative;padding:0;border:0;cursor:pointer;
+  width:calc(88px * var(--ent-k));height:calc(88px * var(--ent-k));
   display:flex;align-items:center;justify-content:center;
-  background:#fff;border-radius:14px;
+  background:#fff;border-radius:calc(14px * var(--ent-k));
   box-shadow:0 1px 3px rgba(0,0,0,.2), 0 5px 14px rgba(0,0,0,.16);
 }
-.card.m2 .ent,.card.m3 .ent,.card.m4 .ent{width:74px;height:74px;border-radius:12px}
-.ent .sprite{--cell:72px;transition:transform .15s}
-.card.m2 .ent .sprite,.card.m3 .ent .sprite,.card.m4 .ent .sprite{--cell:60px}
+.card.m2 .ent,.card.m3 .ent,.card.m4 .ent{
+  width:calc(74px * var(--ent-k));height:calc(74px * var(--ent-k));border-radius:calc(12px * var(--ent-k))}
+.ent .sprite{--cell:calc(72px * var(--ent-k));transition:transform .15s}
+.card.m2 .ent .sprite,.card.m3 .ent .sprite,.card.m4 .ent .sprite{--cell:calc(60px * var(--ent-k))}
 .ent:hover .sprite{transform:translateY(-3px)}
 .ent.sel{box-shadow:0 0 0 2.5px var(--sel), 0 5px 14px rgba(0,0,0,.2)}
-.ent.empty{background:rgba(255,255,255,.72);border:1.5px dashed rgba(25,22,34,.3);color:rgba(25,22,34,.5);font-size:19px;box-shadow:none}
+.ent.empty{background:rgba(255,255,255,.72);border:1.5px dashed rgba(25,22,34,.3);color:rgba(25,22,34,.5);font-size:calc(19px * var(--ent-k));box-shadow:none}
 .ent.empty:hover{border-color:var(--sel);color:rgba(25,22,34,.75)}
 body.locked .ent.empty{display:none}
 
@@ -431,6 +434,9 @@ select.tin{cursor:pointer}
               <label class="chk"><input type="checkbox" id="t_solo" checked> 단독샷</label>
               <label class="chk"><input type="checkbox" id="t_grid" checked> 빈 배경 격자</label>
             </div>
+            <div class="row" style="margin-top:10px"><span class="lbl">도트 크기</span>
+              <input type="range" id="entSize" min="50" max="140" value="100" aria-label="엔트리 도트 크기">
+              <span class="mini pix" id="entSizeV">100%</span></div>
           </div>
 
           <div class="msec">
@@ -716,7 +722,7 @@ function newPerson(){
 function fresh(){
   return {
     v:VER, mode:1, flat:false,
-    bg:"#ffffff", grid:true,
+    bg:"#ffffff", grid:true, entK:1,
     show:{name:true,quote:true,desc:true,party:true,solo:true},
     people:[newPerson(),newPerson(),newPerson(),newPerson()],
     base:null, baseCrop:{x:0,y:0,z:1},
@@ -755,6 +761,7 @@ function paintCard(){
 function fit(){
   if(document.body.classList.contains("exporting")) return;
   var c=cardSize();
+  document.documentElement.style.setProperty("--ent-k", entK());
   document.documentElement.style.setProperty("--cw", c.cw+"px");
   document.documentElement.style.setProperty("--ch", c.ch+"px");
   var wrap=document.querySelector(".wrap"), st=getComputedStyle(wrap);
@@ -994,8 +1001,10 @@ function renderPeople(){
 /* ── 엔트리 도트 ─────────────────────────────────── */
 /* 사람마다 여섯 개가 한 덩어리. 2인은 좌·우,
    3~4인 쌓기는 낮고 넓은 단체샷에 맞춰 가로로 고르게, 가로로는 네 귀퉁이에서 시작한다. */
+/** 도트 크기 배율 — 0.5 ~ 1.4 */
+function entK(){ var v=+S.entK; return (v>=0.5 && v<=1.4) ? v : 1; }
 function partySize(){
-  var D=(S.mode===1?88:74), G=7, off=(S.mode===1?26:22);
+  var k=entK(), D=(S.mode===1?88:74)*k, G=7*k, off=(S.mode===1?26:22)*k;
   return { w:2*D+G, h:3*D+2*G+off };
 }
 function defaultParty(pi){
@@ -1075,6 +1084,12 @@ function renderDots(){
     })(pi);
   }
 }
+$("entSize").addEventListener("input",function(){
+  S.entK=Math.max(.5, Math.min(1.4, +this.value/100));
+  $("entSizeV").textContent=Math.round(S.entK*100)+"%";
+  document.documentElement.style.setProperty("--ent-k", entK());
+  save();
+});
 $("dotsReset").addEventListener("click",function(){
   for(var i=0;i<4;i++) S.people[i].party=null;
   renderDots(); save(); toast("도트를 제자리로 되돌렸어요");
@@ -1705,7 +1720,7 @@ function b64d(c){ var s=c.replace(/-/g,"+").replace(/_/g,"/").trim(); while(s.le
   return new TextDecoder().decode(b); }
 function encode(){
   return "M1."+b64e(JSON.stringify({
-    md:S.mode, fl:S.flat?1:0, bg:S.bg, gr:S.grid?1:0, sh:S.show,
+    md:S.mode, fl:S.flat?1:0, bg:S.bg, gr:S.grid?1:0, ek:Math.round(entK()*100), sh:S.show,
     pp:S.people.slice(0,4).map(function(p){
       return { n:p.name, r:p.role, q:p.quote, d:p.desc,
         e:p.ents.map(function(e){ return e?[e.id,e.nick,e.size,e.title,e.ribbon,e.g,e.sh?1:0]:0; }),
@@ -1721,6 +1736,7 @@ function decode(code){
   n.flat = !!o.fl;
   if(/^#[0-9a-f]{6}$/i.test(o.bg||"")) n.bg=o.bg;
   n.grid = o.gr!==0;
+  n.entK = (+o.ek>=50 && +o.ek<=140) ? +o.ek/100 : 1;
   if(o.sh) n.show={name:!!o.sh.name,quote:!!o.sh.quote,desc:!!o.sh.desc,party:!!o.sh.party,solo:o.sh.solo!==false};
   for(var i=0;i<4;i++){
     var src=o.pp[i]||{}, p=n.people[i];
@@ -1842,6 +1858,7 @@ function apply(n){
     l.classList.toggle("on", l.querySelector("input").checked);
   });
   $("stage").classList.toggle("plain",!S.grid);
+  $("entSize").value=Math.round(entK()*100); $("entSizeV").textContent=Math.round(entK()*100)+"%";
   buildModeSeg(); buildRoleWho(); buildFlatSeg();
   paintCard(); fit();
   renderPeople(); renderBase(); refreshSolos(); renderLayers(); syncLayerUI();

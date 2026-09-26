@@ -507,6 +507,38 @@ async function run() {
     });
   })();
 
+  /* 도트 크기 조절 */
+  const entK = () => win.getComputedStyle(doc.documentElement).getPropertyValue("--ent-k").trim();
+  check("도트 크기를 줄이면 카드에 반영된다", () => {
+    const before = entK();
+    $("entSize").value = "70";
+    $("entSize").dispatchEvent(new win.Event("input", { bubbles: true }));
+    return (before === "1" && entK() === "0.7" && $("entSizeV").textContent === "70%")
+      || `전 ${before} → 후 ${entK()} (${$("entSizeV").textContent})`;
+  });
+  check("도트 크기가 코드에 담겨 되살아난다", () => {
+    const code = $("outCode").value;
+    $("entSize").value = "120";
+    $("entSize").dispatchEvent(new win.Event("input", { bubbles: true }));
+    $("inCode").value = code; click($("loadBtn"));
+    return (entK() === "0.7" && $("entSize").value === "70")
+      || `배율 ${entK()} · 슬라이더 ${$("entSize").value}`;
+  });
+  check("도트를 키우면 처음 자리 간격도 넓어진다", () => {
+    const lefts = () => qsa("#stage .party").map(g => parseFloat(g.style.left));
+    click($("dotsReset"));
+    const small = lefts();
+    $("entSize").value = "140";
+    $("entSize").dispatchEvent(new win.Event("input", { bubbles: true }));
+    click($("dotsReset"));
+    const big = lefts();
+    if (small.length < 2) return "덩어리가 " + small.length + "개뿐";
+    /* 덩어리가 커지면 자리를 더 차지하므로 가운데끼리 더 벌어진다 */
+    const gap = a => a[1] - a[0];
+    return gap(big) > gap(small)
+      || `작을 때 간격 ${gap(small).toFixed(1)} / 클 때 ${gap(big).toFixed(1)}`;
+  });
+
   /* ── 9. 리셋 ────────────────────────────────── */
   check("리셋은 두 번 눌러야 지워짐", () => {
     click($("resetBtn"));
